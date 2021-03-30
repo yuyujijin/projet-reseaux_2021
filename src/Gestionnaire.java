@@ -5,25 +5,38 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.util.ArrayList;
 
 public class Gestionnaire{
     private final int MAX_DIFFUSEUR;
     private int NBR_DIFFUSEUR;
-    private final String[] diffuseurs;
+    private final ArrayList<String> diffuseurs;
     private final int port;
+
+    public static int CHECK_CONNECTED_TIME = 10000;
+    public static int TIMEOUT_TIME = 3000;
 
     public Gestionnaire(int port, int maxDiffuseurs){
         MAX_DIFFUSEUR = maxDiffuseurs;
         NBR_DIFFUSEUR = 0;
-        this.diffuseurs = new String[MAX_DIFFUSEUR];
+        this.diffuseurs = new ArrayList<String>();
         this.port = port;
     }
 
+    // TODO...
+    // gérer les accès a concurrence a la liste des diffuseurs
     public boolean addGestionaire(String s){
         // s : id_ip1_port1_ip2_port2
         if(NBR_DIFFUSEUR >= MAX_DIFFUSEUR) return false;
-        diffuseurs[NBR_DIFFUSEUR++] = s;
+        diffuseurs.add(s);
+        NBR_DIFFUSEUR++;
         return true;
+    }
+
+    public boolean removeGestionaire(String s){
+        NBR_DIFFUSEUR--;
+        return diffuseurs.remove(s);
     }
 
     public void start() throws IOException{
@@ -63,7 +76,7 @@ public class Gestionnaire{
         for(int i = 0; i < NBR_DIFFUSEUR; i++){
             // ITEM id ip1 port1 ip2 port2
             // id : 8 octets, ip1/2 : 15 octets, port1/2 : 4 octets
-            String item = "ITEM " + diffuseurs[i];
+            String item = "ITEM " + diffuseurs.get(i);
             writer.print(item);
             writer.flush();
         }
@@ -79,7 +92,6 @@ public class Gestionnaire{
         // Puis on récupère le message
         int length = 8 + 1 + 15 + 1 + 4 + 1 + 15 + 1 + 4;
         char[] diffuseur = new char[length];
-        System.out.println();
         if(reader.read(diffuseur, 0, length) != length){ 
             System.out.println("ERREUR DE FORMATAGE DANS L'ENREGISTREMENT DE " + socket.getInetAddress().toString() + ". JE FERME LA CONNEXION");
             socket.close(); return; 
@@ -90,11 +102,47 @@ public class Gestionnaire{
             System.out.println("L'ENREGISTREMENT DE " + socket.getInetAddress().toString() + " A ETE EFFECTUE AVEC SUCCES.");
             writer.print("REOK");
             writer.flush();
+
+            diffuseurRoutine(socket, String.valueOf(diffuseur));
         }else{
             System.out.println("L'ENREGISTREMENT DE " + socket.getInetAddress().toString() + " A ECHOUE.");
             writer.print("RENO");
             writer.flush();
             socket.close();
+        }
+    }
+
+    public void diffuseurRoutine(Socket socket, String diffuseur_identifier) throws IOException{
+        try(PrintWriter pr = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+            BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()))){
+            // On met le temps d'attente
+            socket.setSoTimeout(TIMEOUT_TIME);
+            while(true){
+                // On attend le temps de vérification de connexion
+                Thread.sleep(CHECK_CONNECTED_TIME);
+                System.out.println("JE VERIFIE SI " + socket.getInetAddress().toString() + " EST TOUJOURS ACTIF");
+
+                pr.print("RUOK");
+                pr.flush();
+
+                char[] resp = new char[4];
+                br.read(resp, 0, 4);
+
+                // Si la réponse est mauvaise
+                if(!String.valueOf(resp).equals("IMOK")){
+                    System.out.println("FERMETURE DE LA CONNEXION AVEC LE DIFFUSEUR " + socket.getInetAddress().toString());
+                    removeGestionaire(diffuseur_identifier);
+                    socket.close();
+                    return;
+                }
+
+                System.out.println(socket.getInetAddress().toString() + " EST TOUJOURS ACTIF");
+            }   
+        }catch(SocketTimeoutException e){
+            System.out.println("TEMPS D'ATTENTE POUR " + socket.getInetAddress().toString() + " ECOULE");
+            socket.close();
+        }catch(InterruptedException e){
+            e.printStackTrace();
         }
     }
 
