@@ -64,15 +64,15 @@ public class Diffuseur {
                 // On envoie un message en multi-diffusion
                 InetSocketAddress ia = new InetSocketAddress(ipmulti, port1);
                 String s = "Je suis un message pret a etre envoye et j'aime la confiture sa mere " + i++;
-                msgList[num_msg] = s;
-                stringInBytes(data, "DIFF " + normalizedNumMsg(this.num_msg) + " " + id + " " + s);
+                msgList[NUM_MSG] = s;
+                stringInBytes(data, "DIFF " + normalizedNumMsg(this.NUM_MSG) + " " + id + " " + s);
                 System.out.println("JE DIFFUSE UN MESSAGE À L'ADRESSE " + ipmulti + " ET SUR LE PORT " + port1);
                 DatagramPacket paquet = new DatagramPacket(data, data.length, ia);
                 // On envoie le paquet
                 dso.send(paquet);
                 // On incrémente le nombre de message
                 incrMsg();
-                System.out.println("PAQUET ENVOYE " + normalizedNumMsg(this.num_msg));
+                System.out.println("PAQUET ENVOYE " + normalizedNumMsg(this.NUM_MSG));
                 // Puis on dort avant d'envoyer un nouveau message
                 Thread.sleep(SLEEP_TIME);
             }
@@ -128,11 +128,11 @@ public class Diffuseur {
             return;
         }
         // Pour ne pas dépasser la taille du nombre de message diffusé
-        int nbres = Math.min(Integer.valueOf(String.valueOf(nb)), num_msg - 1);
+        int nbres = Math.min(Integer.valueOf(String.valueOf(nb)), NUM_MSG - 1);
         PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
         // Puis on envoie les `nbres` derniers messages
         for (int i = 0; i < nbres; i++) {
-            String s = "OLDM " + normalizedNumMsg(this.num_msg - i) + " " + id + " " + msgList[num_msg - i - 1];
+            String s = "OLDM " + normalizedNumMsg(this.NUM_MSG - i) + " " + id + " " + msgList[NUM_MSG - i - 1];
             byte[] data = new byte[4 + 1 + 4 + 1 + 8 + 1 + 140];
             stringInBytes(data, s);
             // Puis on envoie les données
