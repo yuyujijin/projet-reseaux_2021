@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Diffuseur {
     private final String id;
@@ -7,8 +8,8 @@ public class Diffuseur {
     private final int port1, port2;
     private final String ipmulti, ip2;
 
-    private int NUM_MSG = 0;
-    private int MSG_INDEX = 0;
+    private AtomicInteger NUM_MSG = new AtomicInteger(0);
+    private AtomicInteger MSG_INDEX = new AtomicInteger(0);
 
     private static int MAX_MSG = 10000;
     private static int SLEEP_TIME = 1000;
@@ -28,27 +29,23 @@ public class Diffuseur {
         msgList = new String[MAX_MSG];
     }
 
-    // TODO...
-    // Gérer la concurrence multi thread
     public void loadMessage(String filename) throws IOException {
         String[] msgs = FileLoader.loadMessages(filename);
-        for (int i = 0; i < Math.min(msgs.length, MAX_MSG - MSG_INDEX); i++) {
-            addMessage(msgs[i]);
+        synchronized (msgs) {
+            for (int i = 0; i < Math.min(msgs.length, (MAX_MSG - MSG_INDEX.get())); i++) {
+                addMessage(msgs[i]);
+            }
         }
     }
 
-    // TODO...
-    // Gérer la concurrence multi thread
     private void addMessage(String msg) {
-        msgList[NUM_MSG] = msg;
+        msgList[NUM_MSG.get()] = msg;
         incrMsg();
     }
 
     // Permet d'incrémenter le nombre de message
-    // TODO...
-    // Gérer la concurrence multi thread
     private void incrMsg() {
-        NUM_MSG = (NUM_MSG + 1) % 10000;
+        NUM_MSG.set((NUM_MSG.incrementAndGet()) % 10000);
     }
 
     // Met s dans le tableau data
@@ -65,25 +62,23 @@ public class Diffuseur {
     }
 
     // Normalise un numéro de message
-    private String normalizedNumMsg(int num_msg) {
-        if (num_msg < 10)
+    private String normalizedNumMsg(AtomicInteger num_msg) {
+        if (num_msg.get() < 10)
             return "000" + num_msg;
-        if (num_msg < 100)
+        if (num_msg.get() < 100)
             return "00" + num_msg;
-        if (num_msg < 1000)
+        if (num_msg.get() < 1000)
             return "0" + num_msg;
         return String.valueOf(num_msg);
     }
 
-    // TODO...
-    // gérer concurrence
-    private String getMsg() {
-        String msg = msgList[MSG_INDEX];
+    private synchronized String getMsg() {
+        String msg = msgList[MSG_INDEX.get()];
         return msg;
     }
 
-    private void incrMsgIndex() {
-        MSG_INDEX = (MSG_INDEX + 1) % NUM_MSG;
+    private synchronized void incrMsgIndex() {
+        MSG_INDEX.set((MSG_INDEX.incrementAndGet()) % NUM_MSG.get());
     }
 
     // Fonction utilisée pour la diffusion
@@ -149,7 +144,7 @@ public class Diffuseur {
         }).start();
     }
 
-    void lastMsgs(Socket sock, BufferedReader br) throws IOException {
+    public synchronized void lastMsgs(Socket sock, BufferedReader br) throws IOException {
         System.out.println("LAST MSG");
         // On saute l'espace
         br.read();
@@ -160,11 +155,12 @@ public class Diffuseur {
             return;
         }
         // Pour ne pas dépasser la taille du nombre de message diffusé
-        int nbres = Math.min(Integer.valueOf(String.valueOf(nb)), NUM_MSG - 1);
+        int nbres = Math.min(Integer.valueOf(String.valueOf(nb)), NUM_MSG.decrementAndGet());
         PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
         // Puis on envoie les `nbres` derniers messages
         for (int i = 0; i < nbres; i++) {
-            String s = "OLDM " + normalizedNumMsg(this.NUM_MSG - i) + " " + id + " " + msgList[NUM_MSG - i - 1];
+            String s = "OLDM " + normalizedNumMsg(new AtomicInteger(NUM_MSG.get() - i)) + " " + id + " "
+                    + msgList[NUM_MSG.get() - i - 1];
             byte[] data = new byte[4 + 1 + 4 + 1 + 8 + 1 + 140];
             stringInBytes(data, s);
             // Puis on envoie les données
@@ -178,10 +174,11 @@ public class Diffuseur {
     }
 
     void addMessageToList(Socket sock, BufferedReader br) {
-
     }
 
     public static void main(String[] args) throws IOException {
+        AtomicInteger atest = new AtomicInteger(123);
+        System.out.println(atest.get() % 12);
         Diffuseur diff = new Diffuseur("iddiff", 8192, 8999, "225.1.2.4");
         diff.loadMessage("../data/message1.data");
         diff.start();
