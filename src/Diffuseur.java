@@ -6,21 +6,42 @@ public class Diffuseur {
     private String[] msgList;
     private final int port1, port2;
     private final String ipmulti, ip2;
+
     private int NUM_MSG = 0;
-    private static int SLEEP_TIME = 5000;
+    private int MSG_INDEX = 0;
+
+    private static int MAX_MSG = 10000;
+    private static int SLEEP_TIME = 1000;
 
     // Diffuseur identifié par :
-    // un id, un port et une adresse multi diff, et un port pour la communication connectée
+    // un id, un port et une adresse multi diff, et un port pour la communication
+    // connectée
     public Diffuseur(String id, int port1, int port2, String ipmulti) throws IOException {
-        if (id.length() < 8) 
+        if (id.length() < 8)
             for (int i = id.length(); i < 8; i++)
                 id += "#";
-        this.id = id;
+        this.id = id.substring(0, 8);
         this.port1 = port1;
         this.port2 = port2;
         this.ipmulti = ipmulti;
         this.ip2 = InetAddress.getLocalHost().getHostAddress();
-        msgList = new String[10000];
+        msgList = new String[MAX_MSG];
+    }
+
+    // TODO...
+    // Gérer la concurrence multi thread
+    public void loadMessage(String filename) throws IOException {
+        String[] msgs = FileLoader.loadMessages(filename);
+        for (int i = 0; i < Math.min(msgs.length, MAX_MSG - MSG_INDEX); i++) {
+            addMessage(msgs[i]);
+        }
+    }
+
+    // TODO...
+    // Gérer la concurrence multi thread
+    private void addMessage(String msg) {
+        msgList[NUM_MSG] = msg;
+        incrMsg();
     }
 
     // Permet d'incrémenter le nombre de message
@@ -54,26 +75,35 @@ public class Diffuseur {
         return String.valueOf(num_msg);
     }
 
+    // TODO...
+    // gérer concurrence
+    private String getMsg() {
+        String msg = msgList[MSG_INDEX];
+        return msg;
+    }
+
+    private void incrMsgIndex() {
+        MSG_INDEX = (MSG_INDEX + 1) % NUM_MSG;
+    }
+
     // Fonction utilisée pour la diffusion
     private void diffuse() {
         try (DatagramSocket dso = new DatagramSocket()) {
             System.out.println("JE SUIS LE DIFFUSEUR " + id);
             byte[] data = new byte[4 + 1 + 4 + 1 + 8 + 1 + 140];
-            int i = 0;
             while (true) {
                 // On envoie un message en multi-diffusion
                 InetSocketAddress ia = new InetSocketAddress(ipmulti, port1);
-                String s = "Je suis un message pret a etre envoye et j'aime la confiture sa mere " + i++;
-                msgList[NUM_MSG] = s;
-                stringInBytes(data, "DIFF " + normalizedNumMsg(this.NUM_MSG) + " " + id + " " + s);
-                System.out.println("JE DIFFUSE UN MESSAGE À L'ADRESSE " + ipmulti + " ET SUR LE PORT " + port1);
+
+                String msg = getMsg();
+                stringInBytes(data, "DIFF " + normalizedNumMsg(this.MSG_INDEX) + " " + id + " " + msg);
+                incrMsgIndex();
+
+                System.out.println(new String(data));
+
                 DatagramPacket paquet = new DatagramPacket(data, data.length, ia);
-                // On envoie le paquet
                 dso.send(paquet);
-                // On incrémente le nombre de message
-                incrMsg();
-                System.out.println("PAQUET ENVOYE " + normalizedNumMsg(this.NUM_MSG));
-                // Puis on dort avant d'envoyer un nouveau message
+
                 Thread.sleep(SLEEP_TIME);
             }
         } catch (Exception e) {
@@ -82,39 +112,41 @@ public class Diffuseur {
     }
 
     public void start() {
-        // On créer un thread qui va diffuser 
+        // On créer un thread qui va diffuser
         new Thread(() -> diffuse()).start();
-        // Puis on attend des connexions TCP
-        try (ServerSocket sso = new ServerSocket(port2)) {
-            while (true) {
-                Socket sock = sso.accept();
-                System.out.println("NOUVELLE CO");
-                // On créer un nouveau thread pour la connexion entrante
-                new Thread(() -> {
-                    try (BufferedReader br = new BufferedReader(new InputStreamReader(sock.getInputStream()))) {
-                        char[] command = new char[4];
-                        br.read(command, 0, 4);
-                        // On regarde quelle commande est effectuée
-                        switch (String.valueOf(command)) {
-                        case "LAST":
-                            lastMsgs(sock, br);
-                            break;
-                        case "MESS":
-                            addToSend(sock, br);
-                            break;
-                        default:
-                            System.out.println("COMMANDE INCONNUE");
-                            sock.close();
-                            break;
+        // Puis on créer un nouveau thread pour récuperer les connexions TCP
+        new Thread(() -> {
+            try (ServerSocket sso = new ServerSocket(port2)) {
+                while (true) {
+                    Socket sock = sso.accept();
+                    System.out.println("NOUVELLE CO");
+                    // On créer un nouveau thread pour la connexion entrante
+                    new Thread(() -> {
+                        try (BufferedReader br = new BufferedReader(new InputStreamReader(sock.getInputStream()))) {
+                            char[] command = new char[4];
+                            br.read(command, 0, 4);
+                            // On regarde quelle commande est effectuée
+                            switch (String.valueOf(command)) {
+                            case "LAST":
+                                lastMsgs(sock, br);
+                                break;
+                            case "MESS":
+                                addMessageToList(sock, br);
+                                break;
+                            default:
+                                System.out.println("COMMANDE INCONNUE");
+                                sock.close();
+                                break;
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
                         }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }).start();
+                    }).start();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        }).start();
     }
 
     void lastMsgs(Socket sock, BufferedReader br) throws IOException {
@@ -145,12 +177,13 @@ public class Diffuseur {
         sock.close();
     }
 
-    void addToSend(Socket sock, BufferedReader br) {
+    void addMessageToList(Socket sock, BufferedReader br) {
 
     }
 
     public static void main(String[] args) throws IOException {
         Diffuseur diff = new Diffuseur("iddiff", 8192, 8999, "225.1.2.4");
+        diff.loadMessage("../data/message1.data");
         diff.start();
     }
 }
