@@ -173,6 +173,11 @@ public class Diffuseur {
         sock.close();
     }
 
+    /*
+     * addMessageToList doit : - Ajouter le message reçu en TCP à la liste de
+     * messages (pourvu que celle ci ne soit pas déjà remplie) - Mettre à jour le
+     * NUM_MSG
+     */
     void addMessageToList(Socket sock, BufferedReader br) {
     }
 
