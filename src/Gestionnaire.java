@@ -41,8 +41,10 @@ public class Gestionnaire {
     public boolean removeGestionaire(String s) {
         // Synchronisation sur diffuseurs pour éviter les accès concurrent
         synchronized (diffuseurs) {
+            if (!diffuseurs.remove(s))
+                return false;
             NBR_DIFFUSEUR.decrementAndGet();
-            return diffuseurs.remove(s);
+            return true;
         }
     }
 
@@ -86,15 +88,14 @@ public class Gestionnaire {
 
         // Synchronisation sur diffuseurs pour éviter les accès concurrent
         synchronized (diffuseurs) {
-            String linb = "LINB " + ((NBR_DIFFUSEUR.get() >= 10) ? "" : "0") + NBR_DIFFUSEUR;
+            String linb = "LINB " + NetRadio.fillWithZero(NBR_DIFFUSEUR.get(), NetRadio.NUMDIFF) + "\r\n";
             writer.print(linb);
             writer.flush();
 
             // Puis on envoie l'item pour chaque diffuseur
             for (int i = 0; i < NBR_DIFFUSEUR.get(); i++) {
                 // ITEM id ip1 port1 ip2 port2
-                // id : 8 octets, ip1/2 : 15 octets, port1/2 : 4 octets
-                String item = "ITEM " + diffuseurs.get(i);
+                String item = "ITEM " + diffuseurs.get(i) + "\r\n";
                 writer.print(item);
                 writer.flush();
             }
@@ -112,7 +113,8 @@ public class Gestionnaire {
         // On saute l'espace
         reader.read();
         // Puis on récupère le message
-        int length = 8 + 1 + 15 + 1 + 4 + 1 + 15 + 1 + 4;
+        // 1 pour les espaces, 2 pour '\r\n'
+        int length = NetRadio.ID + 1 + NetRadio.IP + 1 + NetRadio.PORT + 1 + NetRadio.IP + 1 + NetRadio.PORT + 2;
         char[] diffuseur = new char[length];
         if (reader.read(diffuseur, 0, length) != length) {
             System.out.println("ERREUR DE FORMATAGE DANS L'ENREGISTREMENT DE " + socket.getInetAddress().toString()
@@ -125,13 +127,13 @@ public class Gestionnaire {
         if (addGestionaire(String.valueOf(diffuseur))) {
             System.out.println(
                     "L'ENREGISTREMENT DE " + socket.getInetAddress().toString() + " A ETE EFFECTUE AVEC SUCCES.");
-            writer.print("REOK");
+            writer.print("REOK\r\n");
             writer.flush();
 
             diffuseurRoutine(socket, String.valueOf(diffuseur));
         } else {
             System.out.println("L'ENREGISTREMENT DE " + socket.getInetAddress().toString() + " A ECHOUE.");
-            writer.print("RENO");
+            writer.print("RENO\r\n");
             writer.flush();
             socket.close();
         }
@@ -147,14 +149,14 @@ public class Gestionnaire {
                 Thread.sleep(CHECK_CONNECTED_TIME);
                 System.out.println("JE VERIFIE SI " + socket.getInetAddress().toString() + " EST TOUJOURS ACTIF");
 
-                pr.print("RUOK");
+                pr.print("RUOK\r\n");
                 pr.flush();
 
-                char[] resp = new char[4];
-                br.read(resp, 0, 4);
+                char[] resp = new char[6];
+                br.read(resp, 0, 6);
 
                 // Si la réponse est mauvaise
-                if (!String.valueOf(resp).equals("IMOK")) {
+                if (!String.valueOf(resp).equals("IMOK\r\n")) {
                     System.out.println(
                             "FERMETURE DE LA CONNEXION AVEC LE DIFFUSEUR " + socket.getInetAddress().toString());
                     removeGestionaire(diffuseur_identifier);
@@ -166,6 +168,7 @@ public class Gestionnaire {
             }
         } catch (SocketTimeoutException e) {
             System.out.println("TEMPS D'ATTENTE POUR " + socket.getInetAddress().toString() + " ECOULE");
+            removeGestionaire(diffuseur_identifier);
             socket.close();
         } catch (InterruptedException e) {
             e.printStackTrace();

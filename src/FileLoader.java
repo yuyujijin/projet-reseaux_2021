@@ -46,6 +46,7 @@ public final class FileLoader {
             settings.put(key, value);
             line = reader.readLine();
         }
+        reader.close();
         return settings;
     }
 }
