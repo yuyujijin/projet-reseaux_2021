@@ -32,7 +32,7 @@ public class Gestionnaire {
             // s : id_ip1_port1_ip2_port2
             if (NBR_DIFFUSEUR.get() >= MAX_DIFFUSEUR)
                 return false;
-            diffuseurs.add(s);
+            diffuseurs.add(s.strip());
             NBR_DIFFUSEUR.incrementAndGet();
             return true;
         }
