@@ -223,11 +223,13 @@ public class Diffuseur {
 
     public static void main(String[] args) throws IOException {
         HashMap<String, String> settings = (HashMap<String, String>) FileLoader.loadSettings(args[0]);
+
         String id = settings.get("id");
         String ip1 = settings.get("ip1");
         int port1 = Integer.valueOf(settings.get("port1"));
         int port2 = Integer.valueOf(settings.get("port2"));
         startMessage(id, ip1, port1, port2);
+
         Diffuseur diff = new Diffuseur(id, port1, port2, ip1);
         diff.loadMessage("../data/message1.data");
         diff.start();
