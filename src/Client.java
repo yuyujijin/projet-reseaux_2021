@@ -8,6 +8,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -15,13 +17,16 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 
 public final class Client {
-    private static final String[] cmdList = {
-            "'LISTEN' : Starts the routine that make the client starts listening to a specified diffusor." };
+    private static final String[] cmdList = { "'LISTEN' : Begin listening to a specified diffusor.",
+            "'LIST' : Ask for a list of diffusor to a diffusor manager.", "'exit' : Leaves the client.",
+            "'HELP' : Print every possible commands." };
 
     private Client() {
     }
 
     private void start() throws UnknownHostException, IOException {
+        System.out.println(
+                "Welcome to the NetRadio client ! Type 'HELP' to print every commands and 'exit' to exit the client.");
         Scanner s = new Scanner(System.in);
         while (true) {
             String cmd = s.nextLine();
@@ -70,17 +75,16 @@ public final class Client {
         JFrame frame = new JFrame(ip + ":" + port);
         frame.setSize(540, 320);
         frame.setVisible(true);
-        frame.addWindowListener(new java.awt.event.WindowAdapter() {
-            @Override
-            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-                System.out.println("Stopped listening to " + ip + ":" + port);
-                try {
-                    mso.leaveGroup(InetAddress.getByName(ip));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+        /*
+         * frame.addWindowListener(new WindowAdapter() {
+         * 
+         * @Override public void windowClosing(WindowEvent windowEvent) {
+         * System.out.println("Stopped listening to " + ip + ":" + port); try {
+         * mso.leaveGroup(InetAddress.getByName(ip)); } catch (Exception e) {
+         * System.out.
+         * println("Something went wrong when unsubscribing to the diffusor..."); } }
+         * });
+         */
 
         JTextArea pane = new JTextArea();
         pane.setLayout(new BoxLayout(pane, BoxLayout.Y_AXIS));
@@ -102,7 +106,7 @@ public final class Client {
             try {
                 MulticastSocket mso = new MulticastSocket(port);
                 mso.joinGroup(InetAddress.getByName(ip));
-                int length = 4 + 1 + NetRadio.NUMMESS + 1 + NetRadio.ID + NetRadio.MESS + 2;
+                int length = 4 + 1 + NetRadio.NUMMESS + 1 + NetRadio.ID + 1 + NetRadio.MESS + 2;
                 byte[] data = new byte[length];
                 DatagramPacket paquet = new DatagramPacket(data, data.length);
 
@@ -120,7 +124,8 @@ public final class Client {
                     pane.revalidate();
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                System.out.println(
+                        "Something went wrong when trying to listen to the diffusor... (Are your sure the diffusor is online?)");
             }
         }).start();
     }
@@ -136,12 +141,12 @@ public final class Client {
         pw.print("LIST\r\n");
         pw.flush();
 
-        char[] nbr = new char[4 + NetRadio.NUMDIFF + 2];
+        char[] nbr = new char[4 + 1 + NetRadio.NUMDIFF + 2];
         BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        br.read(nbr, 0, 4 + NetRadio.NUMDIFF + 2);
+        br.read(nbr, 0, 4 + 1 + NetRadio.NUMDIFF + 2);
 
         int n = Integer.valueOf(String.valueOf(nbr).strip().split(" ")[1]);
-        System.out.print(n + " diffusor" + ((n > 1) ? "s are" : " is") + " registered here.");
+        System.out.print(n + " diffusor" + ((n != 1) ? "s are" : " is") + " registered here.");
         if (n > 0) {
             System.out.println(" Here is the list of every of them :");
             System.out.printf("%-5s %-9s %-16s %-5s %-16s %-5s%n", "#", "ID", "IP1", "PORT1", "IP2", "PORT2");
@@ -155,7 +160,7 @@ public final class Client {
 
             br.read(item, 0, length);
 
-            String[] elems = String.valueOf(item).split(" ");
+            String[] elems = String.valueOf(item).strip().split(" ");
             System.out.printf("%-5d %-9s %-16s %-5s %-16s %-5s%n", i + 1, elems[1], elems[2], elems[3], elems[4],
                     elems[5]);
         }

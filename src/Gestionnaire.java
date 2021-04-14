@@ -32,7 +32,7 @@ public class Gestionnaire {
             // s : id_ip1_port1_ip2_port2
             if (NBR_DIFFUSEUR.get() >= MAX_DIFFUSEUR)
                 return false;
-            diffuseurs.add(s.strip());
+            diffuseurs.add(s);
             NBR_DIFFUSEUR.incrementAndGet();
             return true;
         }
@@ -124,13 +124,14 @@ public class Gestionnaire {
         }
         // On tente de l'ajouter
         PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
-        if (addGestionaire(String.valueOf(diffuseur))) {
+        String diffId = String.valueOf(diffuseur).strip();
+        if (addGestionaire(diffId)) {
             System.out.println(
                     "L'ENREGISTREMENT DE " + socket.getInetAddress().toString() + " A ETE EFFECTUE AVEC SUCCES.");
             writer.print("REOK\r\n");
             writer.flush();
 
-            diffuseurRoutine(socket, String.valueOf(diffuseur));
+            diffuseurRoutine(socket, diffId);
         } else {
             System.out.println("L'ENREGISTREMENT DE " + socket.getInetAddress().toString() + " A ECHOUE.");
             writer.print("RENO\r\n");
