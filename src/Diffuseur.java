@@ -209,7 +209,17 @@ public class Diffuseur {
         sock.close();
     }
 
-    void addMessageToList(Socket sock, BufferedReader br) {
+    void addMessageToList(Socket sock, BufferedReader br) throws IOException {
+        System.out.println("ADDMSG");
+        // On saute l'espace
+        br.read();
+        char[] msgChars = new char[NetRadio.ID + 1 + NetRadio.MESS + 2];
+        br.read(msgChars, 0, NetRadio.ID + 1 + NetRadio.MESS + 2);
+        addMessage(msgChars.toString().strip());
+        PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
+        pw.print("ACKM\r\n");
+        pw.flush();
+        sock.close();
     }
 
     private static void startMessage(String id, String ip1, int port1, int port2) {
