@@ -176,6 +176,10 @@ public class Gestionnaire {
     }
 
     public static void main(String[] args) throws IOException {
+        if (args.length < 1) {
+            System.err.println("Veuillez indiquer un fichier de réglage");
+            return;
+        }
         HashMap<String, String> settings = (HashMap<String, String>) FileLoader.loadSettings(args[0]);
 
         Gestionnaire g = new Gestionnaire(Integer.valueOf(settings.get("port")),

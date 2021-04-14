@@ -222,6 +222,13 @@ public class Diffuseur {
     }
 
     public static void main(String[] args) throws IOException {
+        if (args.length < 1) {
+            System.err.println("Veuillez indiquer un fichier de réglage");
+            return;
+        } else if (args.length < 2) {
+            System.err.println("Veuillez indiquer un fichier de message");
+            return;
+        }
         HashMap<String, String> settings = (HashMap<String, String>) FileLoader.loadSettings(args[0]);
 
         String id = settings.get("id");
@@ -229,9 +236,8 @@ public class Diffuseur {
         int port1 = Integer.valueOf(settings.get("port1"));
         int port2 = Integer.valueOf(settings.get("port2"));
         startMessage(id, ip1, port1, port2);
-
         Diffuseur diff = new Diffuseur(id, port1, port2, ip1);
-        diff.loadMessage("../data/message1.data");
+        diff.loadMessage(args[1]);
         diff.start();
     }
 }

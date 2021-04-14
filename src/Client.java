@@ -8,8 +8,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.AdjustmentEvent;
-import java.awt.event.AdjustmentListener;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
