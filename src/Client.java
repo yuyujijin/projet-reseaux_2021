@@ -13,6 +13,7 @@ import java.awt.event.WindowEvent;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 
@@ -20,6 +21,8 @@ public final class Client {
     private static final String[] cmdList = { "'LISTEN' : Begin listening to a specified diffusor.",
             "'LIST' : Ask for a list of diffusor to a diffusor manager.", "'exit' : Leaves the client.",
             "'HELP' : Print every possible commands." };
+
+    private String id = "idididid";
 
     private Client() {
     }
@@ -39,6 +42,9 @@ public final class Client {
                 break;
             case "HELP":
                 help();
+                break;
+            case "MESS":
+                mess(s);
                 break;
             case "exit":
                 return;
@@ -165,6 +171,29 @@ public final class Client {
                     elems[5]);
         }
 
+        socket.close();
+    }
+
+    private void mess(Scanner s) {
+        String[] args = ipAndPort(s);
+        String ip = args[0];
+        int port = Integer.valueOf(args[1]);
+
+        Socket socket = new Socket(ip, port);
+
+        System.out.println("Please enter your message (Remember: If your message is longer than" + NetRadio.MESS
+                + "characters, it will be truncated): ");
+
+        String mess = NetRadio.fillWithSharp(s.readLine().strip(), NetRadio.MESS);
+
+        PrintWriter pw = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+
+        pw.print("MESS " + id + " " + mess + "\r\n");
+        pw.flush();
+
+        BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        if (!br.readLine().equals("ACKM\r\n"))
+            System.out.println("We couldn't send your message as there was an error with it, sorry!");
         socket.close();
     }
 
