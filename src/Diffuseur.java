@@ -209,17 +209,7 @@ public class Diffuseur {
         sock.close();
     }
 
-    void addMessageToList(Socket sock, BufferedReader br) throws IOException {
-        System.out.println("ADDMSG");
-        // On saute l'espace
-        br.read();
-        char[] msgChars = new char[NetRadio.ID + 1 + NetRadio.MESS + 2];
-        br.read(msgChars, 0, NetRadio.ID + 1 + NetRadio.MESS + 2);
-        addMessage(msgChars.toString().strip());
-        PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
-        pw.print("ACKM\r\n");
-        pw.flush();
-        sock.close();
+    void addMessageToList(Socket sock, BufferedReader br) {
     }
 
     private static void startMessage(String id, String ip1, int port1, int port2) {
@@ -232,22 +222,14 @@ public class Diffuseur {
     }
 
     public static void main(String[] args) throws IOException {
-        if (args.length < 1) {
-            System.err.println("Veuillez indiquer un fichier de réglage");
-            return;
-        } else if (args.length < 2) {
-            System.err.println("Veuillez indiquer un fichier de message");
-            return;
-        }
         HashMap<String, String> settings = (HashMap<String, String>) FileLoader.loadSettings(args[0]);
-
         String id = settings.get("id");
         String ip1 = settings.get("ip1");
         int port1 = Integer.valueOf(settings.get("port1"));
         int port2 = Integer.valueOf(settings.get("port2"));
         startMessage(id, ip1, port1, port2);
         Diffuseur diff = new Diffuseur(id, port1, port2, ip1);
-        diff.loadMessage(args[1]);
+        diff.loadMessage("../data/message1.data");
         diff.start();
     }
 }
