@@ -209,7 +209,7 @@ public class Diffuseur {
         sock.close();
     }
 
-    void addMessageToList(Socket sock, BufferedReader br) {
+    void addMessageToList(Socket sock, BufferedReader br) throws IOException {
         // On saute l'espace
         br.read();
         char[] msgChars = new char[NetRadio.ID + 1 + NetRadio.MESS + 2];
