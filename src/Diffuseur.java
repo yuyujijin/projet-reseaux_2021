@@ -12,6 +12,7 @@ public class Diffuseur {
 
     private AtomicInteger NUM_MSG = new AtomicInteger(0);
     private AtomicInteger MSG_INDEX = new AtomicInteger(0);
+    private int NBR_SENT = 0;
 
     private static int MAX_MSG = 10000;
     private static int SLEEP_TIME = 1000;
@@ -26,20 +27,22 @@ public class Diffuseur {
         this.ipmulti = ipmulti;
         this.ip2 = InetAddress.getLocalHost().getHostAddress();
         msgList = new String[MAX_MSG];
+
+        startMessage(id, ipmulti, ip2, port1, port2);
     }
 
     public void loadMessage(String filename) throws IOException {
         String[] msgs = FileLoader.loadMessages(filename);
         synchronized (msgList) {
             for (int i = 0; i < Math.min(msgs.length, (MAX_MSG - MSG_INDEX.get())); i++) {
-                addMessage(msgs[i]);
+                addMessage(id + " " + msgs[i]);
             }
         }
     }
 
     private void addMessage(String msg) {
         synchronized (msgList) {
-            msgList[NUM_MSG.get()] = NetRadio.fillWithSharp(msg, NetRadio.MESS);
+            msgList[NUM_MSG.get()] = NetRadio.fillWithSharp(msg, NetRadio.ID + 1 + NetRadio.MESS);
             incrMsg();
         }
     }
@@ -103,7 +106,7 @@ public class Diffuseur {
                     }).start();
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                System.out.println("An error as occured : " + e.getMessage());
             }
         }).start();
         // Puis on lit en boucle les inputs pour récuperer les demandes de REGI
@@ -164,9 +167,9 @@ public class Diffuseur {
                 InetSocketAddress ia = new InetSocketAddress(ipmulti, port1);
 
                 String msg = getMsg();
-                stringInBytes(data, "DIFF " + NetRadio.fillWithZero(MSG_INDEX.get(), NetRadio.NUMMESS) + " " + id + " "
-                        + msg + "\r\n");
+                stringInBytes(data, "DIFF " + NetRadio.fillWithZero(NBR_SENT, NetRadio.NUMMESS) + " " + msg + "\r\n");
                 incrMsgIndex();
+                NBR_SENT = (NBR_SENT + 1) % MAX_MSG;
 
                 DatagramPacket paquet = new DatagramPacket(data, data.length, ia);
                 dso.send(paquet);
@@ -191,11 +194,11 @@ public class Diffuseur {
         PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
         synchronized (msgList) {
             // Pour ne pas dépasser la taille du nombre de message diffusé
-            int nbres = Math.min(Integer.valueOf(String.valueOf(nb).substring(0, 3)), NUM_MSG.get());
+            int nbres = Math.min(Integer.valueOf(String.valueOf(nb).strip()), NBR_SENT + 1);
             // Puis on envoie les `nbres` derniers messages
             for (int i = 0; i < nbres; i++) {
-                String s = "OLDM " + NetRadio.fillWithZero(NUM_MSG.get() - i, NetRadio.NUMMESS) + " " + id + " "
-                        + msgList[NUM_MSG.get() - i - 1] + "\r\n";
+                String s = "OLDM " + NetRadio.fillWithZero(NBR_SENT - i, NetRadio.NUMMESS) + " "
+                        + msgList[(NBR_SENT - i) % NUM_MSG.get()] + "\r\n";
                 byte[] data = new byte[4 + 1 + NetRadio.NUMMESS + 1 + NetRadio.ID + 1 + NetRadio.MESS + 2];
                 stringInBytes(data, s);
                 // Puis on envoie les données
@@ -212,20 +215,24 @@ public class Diffuseur {
     void addMessageToList(Socket sock, BufferedReader br) throws IOException {
         // On saute l'espace
         br.read();
+
         char[] msgChars = new char[NetRadio.ID + 1 + NetRadio.MESS + 2];
         br.read(msgChars, 0, NetRadio.ID + 1 + NetRadio.MESS + 2);
-        addMessage(msgChars.toString().strip());
+        addMessage(String.valueOf(msgChars).strip());
+
         PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
         pw.print("ACKM\r\n");
         pw.flush();
+
         sock.close();
     }
 
-    private static void startMessage(String id, String ip1, int port1, int port2) {
+    private static void startMessage(String id, String ip1, String ip2, int port1, int port2) {
         System.out.println("#-----------------------------------#");
         System.out.println(" * id : " + id);
         System.out.println(" * ip multi diffusion : " + ip1);
         System.out.println(" * port multi diffusion : " + port1);
+        System.out.println(" * ip TPC : " + ip2);
         System.out.println(" * port TCP : " + port2);
         System.out.println("#-----------------------------------#");
     }
@@ -244,7 +251,6 @@ public class Diffuseur {
         String ip1 = settings.get("ip1");
         int port1 = Integer.valueOf(settings.get("port1"));
         int port2 = Integer.valueOf(settings.get("port2"));
-        startMessage(id, ip1, port1, port2);
         Diffuseur diff = new Diffuseur(id, port1, port2, ip1);
         diff.loadMessage(args[1]);
         diff.start();

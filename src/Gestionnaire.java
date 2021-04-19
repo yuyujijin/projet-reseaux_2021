@@ -53,29 +53,33 @@ public class Gestionnaire {
         ServerSocket server = new ServerSocket(port);
         System.out.println("GESTIONNAIRE : JE ME LANCE SUR LE PORT " + port);
         while (true) {
-            Socket socket = server.accept();
-            System.out.println("CONNEXION ENTRANTE DE " + socket.getInetAddress().toString());
-            new Thread(() -> {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-                    char[] command = new char[4];
-                    reader.read(command, 0, 4);
-                    switch (String.valueOf(command)) {
-                    case "LIST":
-                        workWithClient(socket);
-                        break;
-                    case "REGI":
-                        workWithDiffuseur(reader, socket);
-                        break;
-                    default:
-                        System.out.println("Je n'ai pas compris cette commande...");
-                        socket.close();
-                        break;
+            try {
+                Socket socket = server.accept();
+                System.out.println("CONNEXION ENTRANTE DE " + socket.getInetAddress().toString());
+                new Thread(() -> {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+                        char[] command = new char[4];
+                        reader.read(command, 0, 4);
+                        switch (String.valueOf(command)) {
+                        case "LIST":
+                            workWithClient(socket);
+                            break;
+                        case "REGI":
+                            workWithDiffuseur(reader, socket);
+                            break;
+                        default:
+                            System.out.println("Je n'ai pas compris cette commande...");
+                            socket.close();
+                            break;
+                        }
+                    } catch (IOException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
                     }
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-            }).start();
+                }).start();
+            } catch (Exception e) {
+                System.out.println("An error as occured : " + e.getMessage());
+            }
         }
     }
 
@@ -188,7 +192,7 @@ public class Gestionnaire {
         try {
             g.start();
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("An error as occured : " + e.getMessage());
         }
     }
 }
