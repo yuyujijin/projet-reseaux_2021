@@ -1,0 +1,2 @@
+rm *.jar
+make cleanall

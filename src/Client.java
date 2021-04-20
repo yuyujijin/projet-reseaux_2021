@@ -190,7 +190,6 @@ public final class Client {
     }
 
     private void last(Scanner s) throws IOException {
-        System.out.println("last");
         String[] args = ipAndPort(s);
         String ip = args[0];
         int port = Integer.valueOf(args[1]);
