@@ -44,11 +44,13 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < size; i++)
     {
-        char buff[ID + 1 + MESS];
-        memset(buff, 0, ID + 1 + MESS);
+        char buff[ID + 1 + strlen(msgs[i]) + 1];
+        memset(buff, 0, ID + 1 + strlen(msgs[i]) + 1);
         strncpy(buff, di.id, ID);
         buff[ID] = ' ';
-        strcpy(buff + ID + 1, msgs[i]);
+
+        memcpy(buff + ID + 1, msgs[i], strlen(msgs[i]));
+
         add_message(buff);
     }
 
