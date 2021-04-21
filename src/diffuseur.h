@@ -1,6 +1,8 @@
 #ifndef DIFFUSEUR_H
 #define DIFFUSEUR_H
 
+#define _POSIX_C_SOURCE 200809L
+
 typedef struct
 {
     char *id;

@@ -79,3 +79,55 @@ char **get_msgs(char *filename, int *size)
 
     return msgs;
 }
+
+diff_info load_settings(char *filename){
+    FILE *fp = fopen(filename, "r");
+    if (fp == NULL)
+        exit(-1);
+    char *line = NULL;
+    size_t len = 0;
+
+    diff_info di;
+    
+    while (getline(&line, &len, fp) != -1)
+    {   
+        char *c = strchr(line, ':');
+        if(c == NULL) exit(-1);
+
+        char key[strlen(line) - strlen(c)];
+        memcpy(key, line, strlen(line) - strlen(c));
+        char val[strlen(c)];
+        memset(val, 0, strlen(c));
+        memcpy(val, c + 1, strlen(c) - 1);
+        if(val[strlen(val) - 1] == '\n') val[strlen(val) - 1] = 0;
+
+        if(!strcmp(key,"id")){
+            di.id = fill_with_sharp(val, ID);
+        }else if(!strcmp(key,"port1")){
+            di.port1 = atoi(val);
+        }else if(!strcmp(key,"port2")){
+            di.port2 = atoi(val);
+        }else if(!strcmp(key,"ip1")){
+            di.ipmulti = strdup(val);
+        }
+    }
+
+    return di;
+}
+
+char *get_host_address(){
+    struct hostent *host_entry;
+    char hostbuffer[256];
+
+    if(gethostname(hostbuffer, sizeof(hostbuffer)) == -1){
+        perror("gethostname"); exit(-1);
+    }
+
+    host_entry = gethostbyname(hostbuffer);
+
+    if(host_entry == NULL){
+        perror("gethostbyname"); exit(-1);
+    }
+
+    return inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0]));
+}

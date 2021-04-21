@@ -13,12 +13,14 @@
 #include "diffuseur.h"
 #include "netradio.h"
 
-diff_info di;
-
 #define min(a, b) (a <= b ? a : b)
+
+// Les informations du diffuseur actuel
+diff_info di;
 
 // La liste de message
 char *msgList[MAX_MSG];
+// Les index nécessaire
 int NUM_MSG, MSG_INDEX, NBR_SENT = 0;
 // Le verrou
 pthread_mutex_t msgLock = PTHREAD_MUTEX_INITIALIZER;
@@ -27,21 +29,31 @@ int start();
 int add_message(char *msg);
 void mess(int sock);
 void last(int sock);
+void print_infos(diff_info di);
 
 int main(int argc, char *argv[])
-{
+{   
     if (argc < 2)
     {
-        printf("Veuillez indiquer un fichier de message.\n");
+        printf("Veuillez indiquer un fichier de settings.\n");
+        return -1;
+    }
+    if(argc < 3){
+        printf("Veuillez indiquer un fichier de messages.\n");
         return -1;
     }
 
-    di = (diff_info){
-        .id = fill_with_sharp("franck", ID), .ipmulti = "225.1.2.4", .port1 = 8192, .ip2 = "127.0.0.1", .port2 = 8999};
+    // On récupère les réglages
+    di = load_settings(argv[1]);
+    di.ip2 = get_host_address();
 
+    print_infos(di);
+
+    // Puis les messages de base
     int size = 0;
-    char **msgs = get_msgs(argv[1], &size);
+    char **msgs = get_msgs(argv[2], &size);
 
+    // Puis on charge les messages
     for (int i = 0; i < size; i++)
     {
         char buff[ID + 1 + strlen(msgs[i]) + 1];
@@ -54,6 +66,7 @@ int main(int argc, char *argv[])
         add_message(buff);
     }
 
+    // Et on lance le diffuseur
     start();
     return 0;
 }
@@ -257,4 +270,14 @@ int start()
     }
     read(STDIN_FILENO, NULL, 1);
     return 0;
+}
+
+void print_infos(diff_info di){
+    printf("#-----------------------------------#\n");
+    printf(" * id : %s\n", di.id);
+    printf(" * ip multi diffusion : %s\n",di.ipmulti);
+    printf(" * port multi diffusion : %d\n",di.port1);
+    printf(" * ip TCP : %s\n",di.ip2);
+    printf(" * port TCP : %d\n", di.port2);
+    printf("#-----------------------------------#\n");
 }

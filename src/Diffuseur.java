@@ -232,7 +232,7 @@ public class Diffuseur {
         System.out.println(" * id : " + id);
         System.out.println(" * ip multi diffusion : " + ip1);
         System.out.println(" * port multi diffusion : " + port1);
-        System.out.println(" * ip TPC : " + ip2);
+        System.out.println(" * ip TCP : " + ip2);
         System.out.println(" * port TCP : " + port2);
         System.out.println("#-----------------------------------#");
     }

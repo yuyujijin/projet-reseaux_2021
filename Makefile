@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-W -Wunused-value -Wall -ansi -pedantic -std=c99
+CFLAGS=-W -Wunused-value -Wall -pthread
 LDFLAGS= -lm -g
 
 ALL=diffuseur
