@@ -34,7 +34,7 @@ char *fill_with_zeros(int n, int size)
     return s;
 }
 
-char *fill_with_sharp(char *s, int n)
+char *fill_with_sharp(char *s, long unsigned int n)
 {
     if (strlen(s) >= n)
     {
@@ -130,4 +130,21 @@ char *get_host_address(){
     }
 
     return inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0]));
+}
+
+char *normalize_ip(char *ip){
+    char *addr = malloc(sizeof(char) * IP);
+    if(addr == NULL) return NULL;
+    memset(addr, 0, 15);
+
+    char *strToken = strtok(ip,".");
+    int i = 0;
+    while(strToken != NULL){
+        strcat(addr, fill_with_zeros(atoi(strToken), 3));
+        if(i++ < 3) strcat(addr, ".");
+        
+        strToken = strtok(NULL,".");
+    }
+
+    return addr;
 }

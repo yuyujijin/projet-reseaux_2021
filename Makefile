@@ -6,13 +6,13 @@ ALL=diffuseur
 
 all: $(ALL)
 
-diffuseur: src/diffuseur.c src/netradio.c
+diffuseur: src/C/diffuseur.c src/C/netradio.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
 	rm -rf $(ALL)
 
 cleano:
-	rm -rf src/*.o
+	rm -rf src/C/*.o
 
 cleanall: clean cleano

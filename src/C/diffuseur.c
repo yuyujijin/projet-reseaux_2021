@@ -21,6 +21,9 @@ diff_info di;
 // La liste de message
 char *msgList[MAX_MSG];
 // Les index nécessaire
+// Les accès concurrents sur NUM_MSG et MSG_INDEX sont tous situé
+// à l'intérieur entre verrou
+// Aucunes modifications concurrentes sur NBR_SENT
 int NUM_MSG, MSG_INDEX, NBR_SENT = 0;
 // Le verrou
 pthread_mutex_t msgLock = PTHREAD_MUTEX_INITIALIZER;
@@ -71,16 +74,19 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+// Incrémente le nombre de messages stockés
 void incr_msg()
 {
     NUM_MSG = (NUM_MSG + 1) % MAX_MSG;
 }
 
+// Incrémente l'index de la liste de message
 void incr_msg_index()
 {
     MSG_INDEX = (MSG_INDEX + 1) % NUM_MSG;
 }
 
+// Ajoute un message a la liste de message
 int add_message(char *msg)
 {
     pthread_mutex_lock(&msgLock);
@@ -91,6 +97,7 @@ int add_message(char *msg)
     return 0;
 }
 
+// Gère la diffusion du diffuseur
 void *diffuse()
 {
     int sock = socket(PF_INET, SOCK_DGRAM, 0);
@@ -99,26 +106,33 @@ void *diffuse()
     memset(&h, 0, sizeof(struct addrinfo));
     h.ai_family = AF_INET;
     h.ai_socktype = SOCK_DGRAM;
+
     char port[5];
     memset(port, 0, 5);
     sprintf(port, "%d", di.port1);
+
     int r = getaddrinfo(di.ipmulti, port, NULL, &fi);
     if (r != 0 || fi == NULL)
     {
         perror("getaddrinfo");
         exit(-1);
     }
+
     struct sockaddr *saddr = fi->ai_addr;
     while (1)
     {
+        // on prend le verrou sur la liste des messages
         pthread_mutex_lock(&msgLock);
+        // liste vide -> on déverouille et on réitère
         if (NUM_MSG == 0)
         {
             pthread_mutex_unlock(&msgLock);
             continue;
         }
+        // on prend un message
         char *msg = msgList[MSG_INDEX];
         incr_msg_index();
+        // et on unlock
         pthread_mutex_unlock(&msgLock);
 
         int size = 4 + 1 + NUMMESS + 1 + ID + 1 + MESS + 2;
@@ -136,6 +150,7 @@ void *diffuse()
     return NULL;
 }
 
+// Permet de gérer les routines des clients via TCP
 void *client_routine(void *adr)
 {
     int sock = *((int *)adr);
@@ -143,6 +158,7 @@ void *client_routine(void *adr)
     char cmd[5];
     memset(cmd, 0, 5);
 
+    // On récupère la commande, et on execute la fonction correspondante
     recv(sock, cmd, 4 * sizeof(char), 0);
 
     if (!strcmp(cmd, "LAST"))
@@ -160,6 +176,7 @@ void *client_routine(void *adr)
     return NULL;
 }
 
+// Récupère un message et l'ajoute a la liste
 void mess(int sock)
 {
     // On saute l'espace
@@ -176,6 +193,7 @@ void mess(int sock)
         exit(-1);
     }
 
+    // On retire \r\n 
     buff[size - 1] = 0;
     buff[size - 2] = 0;
     add_message(buff);
@@ -185,6 +203,7 @@ void mess(int sock)
     close(sock);
 }
 
+// Renvoie les n derniers messages envoyés
 void last(int sock)
 {
     char space;
@@ -202,16 +221,20 @@ void last(int sock)
     }
 
     pthread_mutex_lock(&msgLock);
-    int n = min(atoi(nb), NBR_SENT + 1);
+
+    // On prend une copie de NBR_SENT, qui ne bougera pas
+    // (une sorte d'image figée au moment de la requête)
+    int nb_sent_cpy = NBR_SENT;
+    int n = min(atoi(nb), nb_sent_cpy + 1);
 
     for (int i = 0; i < n; i++)
     {
-        char *s = msgList[(NBR_SENT - i) % NUM_MSG];
+        char *s = msgList[(nb_sent_cpy - i) % NUM_MSG];
         int size = 4 + 1 + NUMMESS + 1 + ID + 1 + MESS + 2;
 
         char oldm[size];
         memset(oldm, 0, size);
-        sprintf(oldm, "OLDM %s %s\r\n", fill_with_zeros(NBR_SENT - i, NUMMESS), s);
+        sprintf(oldm, "OLDM %s %s\r\n", fill_with_zeros(nb_sent_cpy - i, NUMMESS), s);
 
         send(sock, oldm, size, 0);
     }
@@ -222,6 +245,7 @@ void last(int sock)
     close(sock);
 }
 
+// Permet de gérer les connexions entrantes en TCP
 void *receive()
 {
     // On créer un server
@@ -254,6 +278,29 @@ void *receive()
     return NULL;
 }
 
+void *regi(void *x){
+    char *args = ((char*) x);
+    char *s = strchr(args, ' ');
+    if(s == NULL) exit(-1);
+
+    char ip[strlen(args) - strlen(s)];
+    memset(ip, 0, strlen(args) - strlen(s));
+    memcpy(ip, args, strlen(args) - strlen(s));
+
+    char port[strlen(s) - 1];
+    memset(port, 0, strlen(s) - 1);
+    memcpy(port, s + 1, strlen(s) - 1);
+
+    int port_int = atoi(port);
+
+    // TODO...
+    // - créer tocket de connexion vers ip & port
+    // - envoyer regi avec normalized ip
+    // - attendre en boucle les "RUOK" et répondre "IMOK"
+    return NULL;
+}
+
+// Démarre le diffuseur
 int start()
 {
     pthread_t th_diff;
@@ -268,10 +315,27 @@ int start()
         perror("pthread_create receive");
         exit(-1);
     }
-    read(STDIN_FILENO, NULL, 1);
+    // Puis on boucle sur l'entrée standard
+    char *line = NULL;
+    size_t len = 0;
+
+    while(getline(&line, &len, stdin) != -1){
+        line[strlen(line) - 1] = 0;
+        if(!strncmp(line,"REGI",4)){
+            char *args = line + 5;
+
+            pthread_t th_regi;
+            if (pthread_create(&th_regi, NULL, regi, args) != 0)
+            {
+                perror("pthread_create regi");
+                exit(-1);
+            }
+        }
+    }
     return 0;
 }
 
+// Affiche les informations du diffuseur
 void print_infos(diff_info di){
     printf("#-----------------------------------#\n");
     printf(" * id : %s\n", di.id);

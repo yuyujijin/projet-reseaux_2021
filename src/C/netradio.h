@@ -33,9 +33,10 @@
 
 int create_tcp_server(int port);
 char *fill_with_zeros(int n, int size);
-char *fill_with_sharp(char *s, int n);
+char *fill_with_sharp(char *s, long unsigned int n);
 char **get_msgs(char *filename, int *size);
 diff_info load_settings(char *filename);
 char *get_host_address();
+char *normalize_ip(char *ip);
 
 #endif

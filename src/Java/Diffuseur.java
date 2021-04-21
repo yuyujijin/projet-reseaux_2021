@@ -193,12 +193,15 @@ public class Diffuseur {
 
         PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
         synchronized (msgList) {
+            // On prend une copie de NBR_SENT, qui ne bougera pas
+            // (une sorte d'image figée au moment de la requête)
+            int nb_sent_cpy = NBR_SENT;
             // Pour ne pas dépasser la taille du nombre de message diffusé
-            int nbres = Math.min(Integer.valueOf(String.valueOf(nb).strip()), NBR_SENT + 1);
+            int nbres = Math.min(Integer.valueOf(String.valueOf(nb).strip()), nb_sent_cpy + 1);
             // Puis on envoie les `nbres` derniers messages
             for (int i = 0; i < nbres; i++) {
-                String s = "OLDM " + NetRadio.fillWithZero(NBR_SENT - i, NetRadio.NUMMESS) + " "
-                        + msgList[(NBR_SENT - i) % NUM_MSG.get()] + "\r\n";
+                String s = "OLDM " + NetRadio.fillWithZero(nb_sent_cpy - i, NetRadio.NUMMESS) + " "
+                        + msgList[(nb_sent_cpy - i) % NUM_MSG.get()] + "\r\n";
                 byte[] data = new byte[4 + 1 + NetRadio.NUMMESS + 1 + NetRadio.ID + 1 + NetRadio.MESS + 2];
                 stringInBytes(data, s);
                 // Puis on envoie les données
