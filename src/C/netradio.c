@@ -17,6 +17,18 @@ int create_tcp_server(int port)
     return sock;
 }
 
+int create_client_socket(char *adr, int port){
+    struct sockaddr_in address_sock;
+    address_sock.sin_family = AF_INET;
+    address_sock.sin_port = htons(port);
+    inet_aton(adr, &address_sock.sin_addr);
+
+    int descr = socket(PF_INET, SOCK_STREAM, 0);
+    int r = connect(descr, (struct sockaddr *) &address_sock, sizeof(struct sockaddr_in));
+    if(r == -1) return -1;
+    return descr;
+}
+
 char *fill_with_zeros(int n, int size)
 {
     char *s = malloc(sizeof(char) * size);
@@ -137,13 +149,15 @@ char *normalize_ip(char *ip){
     if(addr == NULL) return NULL;
     memset(addr, 0, 15);
 
-    char *strToken = strtok(ip,".");
+    char *save;
+
+    char *strToken = strtok_r(strdup(ip),".",&save);
     int i = 0;
     while(strToken != NULL){
         strcat(addr, fill_with_zeros(atoi(strToken), 3));
         if(i++ < 3) strcat(addr, ".");
         
-        strToken = strtok(NULL,".");
+        strToken = strtok_r(NULL,".",&save);
     }
 
     return addr;

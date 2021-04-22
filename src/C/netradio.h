@@ -32,6 +32,7 @@
 #define NUMDIFF 2
 
 int create_tcp_server(int port);
+int create_client_socket(char *adr, int port);
 char *fill_with_zeros(int n, int size);
 char *fill_with_sharp(char *s, long unsigned int n);
 char **get_msgs(char *filename, int *size);

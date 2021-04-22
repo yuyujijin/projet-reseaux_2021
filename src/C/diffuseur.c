@@ -283,8 +283,8 @@ void *regi(void *x){
     char *s = strchr(args, ' ');
     if(s == NULL) exit(-1);
 
-    char ip[strlen(args) - strlen(s)];
-    memset(ip, 0, strlen(args) - strlen(s));
+    char ip[strlen(args) - strlen(s) + 1];
+    memset(ip, 0, strlen(args) - strlen(s) + 1);
     memcpy(ip, args, strlen(args) - strlen(s));
 
     char port[strlen(s) - 1];
@@ -293,10 +293,43 @@ void *regi(void *x){
 
     int port_int = atoi(port);
 
-    // TODO...
-    // - créer tocket de connexion vers ip & port
+    // - créer socket de connexion vers ip & port
+    int socket = create_client_socket(ip, port_int);
+    if(socket == -1){
+        perror("connect"); return NULL;
+    }
     // - envoyer regi avec normalized ip
+    int size = 4 + 1 + ID + 1 + IP + 1 + PORT + 1 + IP + 1 + PORT + 2;
+    char regibuf[size];
+    memset(regibuf, 0, size);
+    sprintf(regibuf,"REGI %s %s %d %s %d\r\n",
+        di.id, normalize_ip(di.ipmulti), di.port1,
+        normalize_ip(di.ip2), di.port2);
+
+    send(socket, regibuf, size, 0);
+
+    char regiresp[6];
+    memset(regiresp, 0, 6);
+    recv(socket, regiresp, 6, 0);
+
+    if(!strcmp(regiresp,"REOK\r\n")){
+        printf("Enregistrement réussi !\n");
+    }else{
+        printf("Echec de l'enregistrement...\n");
+        return NULL;
+    }
+
     // - attendre en boucle les "RUOK" et répondre "IMOK"
+    while(1){
+        char resp[6];
+        memset(resp, 0, 6);
+
+        recv(socket, resp, 6 * sizeof(char), 0);
+
+        if(!strcmp(resp,"RUOK\r\n")){
+            send(socket, "IMOK\r\n", 6 * sizeof(char), 0);
+        }
+    }
     return NULL;
 }
 

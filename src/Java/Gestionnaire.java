@@ -3,9 +3,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -32,6 +34,9 @@ public class Gestionnaire {
             // s : id_ip1_port1_ip2_port2
             if (NBR_DIFFUSEUR.get() >= MAX_DIFFUSEUR)
                 return false;
+            if (diffuseurs.contains(s)) {
+                return false;
+            }
             diffuseurs.add(s);
             NBR_DIFFUSEUR.incrementAndGet();
             return true;
@@ -48,10 +53,21 @@ public class Gestionnaire {
         }
     }
 
+    private void startMessage(int port) {
+        try {
+            System.out.println("#-----------------------------------#");
+            System.out.println(" * ip : " + InetAddress.getLocalHost().getHostAddress());
+            System.out.println(" * port : " + port);
+            System.out.println("#-----------------------------------#");
+        } catch (UnknownHostException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
     public void start() throws IOException {
         // On boucle en TCP en attendant des connexions
         ServerSocket server = new ServerSocket(port);
-        System.out.println("GESTIONNAIRE : JE ME LANCE SUR LE PORT " + port);
+        startMessage(port);
         while (true) {
             try {
                 Socket socket = server.accept();
@@ -126,6 +142,7 @@ public class Gestionnaire {
             socket.close();
             return;
         }
+
         // On tente de l'ajouter
         PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
         String diffId = String.valueOf(diffuseur).strip();
