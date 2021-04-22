@@ -105,6 +105,8 @@ public final class Client {
         });
 
         JTextArea pane = new JTextArea();
+        pane.setLineWrap(true);
+        pane.setWrapStyleWord(true);
         pane.setLayout(new BoxLayout(pane, BoxLayout.Y_AXIS));
         pane.setEditable(false);
         pane.setSize(frame.getSize());
@@ -139,7 +141,7 @@ public final class Client {
 
                     String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalDateTime.now());
                     String formatted = removeSharp(st.substring(0, st.length() - 2));
-                    pane.setText(pane.getText() + "[" + time + "] " + formatted + "\n");
+                    pane.append("[" + time + "] " + formatted + "\n");
                     pane.setCaretPosition(pane.getDocument().getLength());
                     pane.revalidate();
                 }
