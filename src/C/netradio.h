@@ -39,5 +39,6 @@ char **get_msgs(char *filename, int *size);
 diff_info load_settings(char *filename);
 char *get_host_address();
 char *normalize_ip(char *ip);
+int sendall(int s, char *buf, int *len);
 
 #endif

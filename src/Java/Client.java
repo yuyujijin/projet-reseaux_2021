@@ -19,7 +19,8 @@ import java.io.PrintWriter;
 
 public final class Client {
     private static final String[] cmdList = { "'LISTEN' : Begin listening to a specified diffusor.",
-            "'LIST' : Ask for a list of diffusor to a diffusor manager.", "'exit' : Leaves the client.",
+            "'LIST' : Ask for a list of diffusor to a diffusor manager.",
+            "'LAST' : Ask for the n last messages of a diffusor", "'exit' : Leaves the client.",
             "'HELP' : Print every possible commands.", "'MESS' : Send a client message to a diffusor." };
 
     private String id;
@@ -38,27 +39,27 @@ public final class Client {
                 System.out.print(id + " > ");
                 String cmd = s.nextLine();
                 switch (cmd.strip()) {
-                case "LISTEN":
-                    listen(s);
-                    break;
-                case "LIST":
-                    list(s);
-                    break;
-                case "HELP":
-                    help();
-                    break;
-                case "MESS":
-                    mess(s);
-                    break;
-                case "LAST":
-                    last(s);
-                    break;
-                case "exit":
-                    return;
-                default:
-                    System.out.println(
-                            "Unknown command \"" + cmd + "\". Type \"HELP\" to get a list of every possible commands.");
-                    break;
+                    case "LISTEN":
+                        listen(s);
+                        break;
+                    case "LIST":
+                        list(s);
+                        break;
+                    case "HELP":
+                        help();
+                        break;
+                    case "MESS":
+                        mess(s);
+                        break;
+                    case "LAST":
+                        last(s);
+                        break;
+                    case "exit":
+                        return;
+                    default:
+                        System.out.println("Unknown command \"" + cmd
+                                + "\". Type \"HELP\" to get a list of every possible commands.");
+                        break;
                 }
             } catch (Exception e) {
                 System.out.println("An error as occured : " + e.getMessage());
@@ -207,6 +208,7 @@ public final class Client {
 
             PrintWriter pw = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 
+            System.out.println(nStr);
             pw.print("LAST " + nStr + "\r\n");
             pw.flush();
 
@@ -217,6 +219,7 @@ public final class Client {
                 br.read();
 
                 int size = NetRadio.NUMMESS + 1 + NetRadio.ID + 1 + NetRadio.MESS + 2;
+
                 char[] item = new char[size];
                 br.read(item, 0, size);
 

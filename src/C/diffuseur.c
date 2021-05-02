@@ -141,7 +141,11 @@ void *diffuse()
         char *num = fill_with_zeros(NBR_SENT, NUMMESS);
         sprintf(buff, "DIFF %s %s\r\n", num, msg);
 
-        sendto(sock, buff, size, 0, saddr, (socklen_t)sizeof(struct sockaddr_in));
+        if(sendto(sock, buff, size * sizeof(char), 0, saddr, (socklen_t)sizeof(struct sockaddr_in)) == -1){
+            perror("sendto");
+            exit(-1);
+        }
+
         NBR_SENT = (NBR_SENT + 1) % MAX_MSG;
 
         free(num);
@@ -159,7 +163,11 @@ void *client_routine(void *adr)
     memset(cmd, 0, 5);
 
     // On récupère la commande, et on execute la fonction correspondante
-    recv(sock, cmd, 4 * sizeof(char), 0);
+    if(recv(sock, cmd, 4 * sizeof(char), 0) < 0){
+        perror("recv");
+        close(sock);
+        exit(-1);
+    };
 
     if (!strcmp(cmd, "LAST"))
     {
@@ -181,12 +189,18 @@ void mess(int sock)
 {
     // On saute l'espace
     char space;
-    recv(sock, &space, sizeof(char), 0);
+
+    if(recv(sock, &space, sizeof(char), 0) < 0){
+        perror("recv");
+        close(sock);
+        exit(-1);
+    };
+
     int size = ID + 1 + MESS + 2;
     char buff[size];
     memset(buff, 0, size);
 
-    if (recv(sock, buff, size, 0) != size)
+    if (recv(sock, buff, size * sizeof(char), 0) != size)
     {
         perror("recv");
         close(sock);
@@ -198,7 +212,8 @@ void mess(int sock)
     buff[size - 2] = 0;
     add_message(buff);
 
-    send(sock, "ACKM\r\n", sizeof(char) * 6, 0);
+    int len = 6 * sizeof(char);
+    sendall(sock, "ACKM\r\n", &len);
 
     close(sock);
 }
@@ -213,7 +228,7 @@ void last(int sock)
     char nb[size];
     memset(nb, 0, size);
 
-    if (recv(sock, nb, size, 0) != size)
+    if (recv(sock, nb, size * sizeof(char), 0) != size)
     {
         perror("recv");
         close(sock);
@@ -227,6 +242,8 @@ void last(int sock)
     int nb_sent_cpy = NBR_SENT;
     int n = min(atoi(nb), nb_sent_cpy + 1);
 
+    printf("%d\n",n);
+
     for (int i = 0; i < n; i++)
     {
         char *s = msgList[(nb_sent_cpy - i) % NUM_MSG];
@@ -236,11 +253,21 @@ void last(int sock)
         memset(oldm, 0, size);
         sprintf(oldm, "OLDM %s %s\r\n", fill_with_zeros(nb_sent_cpy - i, NUMMESS), s);
 
-        send(sock, oldm, size, 0);
+        size = size * sizeof(char);
+        if(sendall(sock, oldm, &size) == -1){
+            perror("sendall");
+            close(sock);
+            exit(-1);
+        }
     }
     pthread_mutex_unlock(&msgLock);
 
-    send(sock, "ENDM\r\n", 6, 0);
+    int len = 6 * sizeof(char);
+    if(sendall(sock, "ENDM\r\n", &len) == -1){
+        perror("sendall");
+        close(sock);
+        exit(-1);
+    }
 
     close(sock);
 }
@@ -306,11 +333,22 @@ void *regi(void *x){
         di.id, normalize_ip(di.ipmulti), di.port1,
         normalize_ip(di.ip2), di.port2);
 
-    send(socket, regibuf, size, 0);
+    size = size * sizeof(char);
+
+    if(sendall(socket, regibuf, &size) == -1){
+        perror("sendall");
+        close(socket);
+        exit(-1);
+    }
 
     char regiresp[6];
     memset(regiresp, 0, 6);
-    recv(socket, regiresp, 6, 0);
+
+    if(recv(socket, regiresp, 6 * sizeof(char), 0) < 0){
+        perror("recv");
+        close(socket);
+        exit(-1);
+    }
 
     if(!strcmp(regiresp,"REOK\r\n")){
         printf("Enregistrement réussi !\n");
@@ -324,10 +362,15 @@ void *regi(void *x){
         char resp[6];
         memset(resp, 0, 6);
 
-        recv(socket, resp, 6 * sizeof(char), 0);
+        if(recv(socket, resp, 6 * sizeof(char), 0) < 0){
+            perror("recv");
+            close(socket);
+            exit(-1);
+        }
 
         if(!strcmp(resp,"RUOK\r\n")){
-            send(socket, "IMOK\r\n", 6 * sizeof(char), 0);
+            int len = 6 * sizeof(char);
+            sendall(socket, "IMOK\r\n", &len);
         }
     }
     return NULL;
