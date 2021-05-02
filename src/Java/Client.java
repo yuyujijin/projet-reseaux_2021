@@ -10,10 +10,15 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 
@@ -45,6 +50,9 @@ public final class Client {
                     case "LIST":
                         list(s);
                         break;
+                    case "LSFI":
+                        lsfi(s);
+                        break;
                     case "HELP":
                         help();
                         break;
@@ -54,6 +62,9 @@ public final class Client {
                     case "LAST":
                         last(s);
                         break;
+                    case "DLFI":
+                        dlfi(s);
+                        break;
                     case "exit":
                         return;
                     default:
@@ -62,7 +73,7 @@ public final class Client {
                         break;
                 }
             } catch (Exception e) {
-                System.out.println("An error as occured : " + e.getMessage());
+                System.out.println("An error as occured : [" + e.getClass() + "] " + e.getMessage());
             }
         }
     }
@@ -76,16 +87,6 @@ public final class Client {
             args = s.nextLine().strip().split(" ");
         }
         return args;
-    }
-
-    private String removeSharp(String s) {
-        int count = 0;
-        for (int i = s.length() - 1; i >= 0; i--) {
-            if (s.charAt(i) != '#')
-                break;
-            count++;
-        }
-        return s.substring(0, s.length() - count);
     }
 
     private JTextArea createPrompWindow(String ip, int port, MulticastSocket mso) {
@@ -141,7 +142,7 @@ public final class Client {
                     String st = new String(paquet.getData(), 0, paquet.getLength());
 
                     String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalDateTime.now());
-                    String formatted = removeSharp(st.substring(0, st.length() - 2));
+                    String formatted = NetRadio.removeSharp(st.substring(0, st.length() - 2));
                     pane.append("[" + time + "] " + formatted + "\n");
                     pane.setCaretPosition(pane.getDocument().getLength());
                     pane.revalidate();
@@ -223,7 +224,7 @@ public final class Client {
                 char[] item = new char[size];
                 br.read(item, 0, size);
 
-                System.out.println(removeSharp(String.valueOf(item).strip()));
+                System.out.println(NetRadio.removeSharp(String.valueOf(item).strip()));
 
                 br.read(cmd, 0, 4);
             }
@@ -257,6 +258,134 @@ public final class Client {
             System.out.println("We couldn't send your message as there was an error with it, sorry!");
         else
             System.out.println("Message sent successfully !");
+    }
+
+    private void lsfi(Scanner s) throws IOException {
+        String[] args = ipAndPort(s);
+        String ip = args[0];
+        int port = Integer.valueOf(args[1]);
+
+        Socket socket = new Socket(ip, port);
+
+        PrintWriter pw = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+
+        pw.print("LSFI\r\n");
+        pw.flush();
+
+        BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        char[] resp = new char[4 + 1 + NetRadio.NBFILE + 2];
+        br.read(resp, 0, 4 + 1 + NetRadio.NBFILE + 2);
+
+        int n = Integer.valueOf(String.valueOf(resp).substring(4).strip());
+
+        System.out.println(n + " file.s registered here.");
+
+        char[] cmd = new char[4];
+
+        for (int i = 0; i < n; i++) {
+            br.read(cmd, 0, 4);
+            br.read();
+
+            char[] file = new char[NetRadio.FILENAME + 2];
+            br.read(file, 0, NetRadio.FILENAME + 2);
+
+            System.out.println(" * " + NetRadio.removeSharp(String.valueOf(file).strip()));
+        }
+
+        char[] endf = new char[6];
+        br.read(endf, 0, 6);
+
+        socket.close();
+    }
+
+    private void dlfi(Scanner s) throws IOException {
+        String[] args = ipAndPort(s);
+        String ip = args[0];
+        int port = Integer.valueOf(args[1]);
+
+        Socket socket = new Socket(ip, port);
+
+        System.out.println("Which file would you like to download?");
+
+        String f = s.nextLine().trim();
+
+        PrintWriter pw = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+        pw.print("LSDL " + NetRadio.fillWithSharp(f, NetRadio.FILENAME));
+        pw.flush();
+
+        // On utilise un input stream car on va récuperer des bytes
+        // On évite de mélanger les streams
+
+        InputStream in = socket.getInputStream();
+
+        byte[] resp = new byte[4];
+        in.read(resp, 0, 4);
+        if (new String(resp).equals("FIOK")) {
+            in.read();
+            byte[] size = new byte[NetRadio.FILESIZE + 2];
+            in.read(size, 0, NetRadio.FILESIZE + 2);
+
+            int filesize = Integer.valueOf(new String(size).trim());
+
+            System.out.println("The file " + f + " weight " + filesize + "B. It will be saved at `downloads/" + f
+                    + "`.\n" + "(If a file of the same name already exists, it will be removed.)");
+
+            // Si le dossier downloads n'existe pas on le créer
+            File downloads = new File("downloads");
+            if (!downloads.exists()) {
+                downloads.mkdir();
+            }
+
+            // Puis on créer le fichier
+            File nFile = new File("downloads/" + f);
+
+            if (nFile.exists())
+                nFile.delete();
+
+            if (!nFile.createNewFile()) {
+                System.err.println("Error while creating the file...");
+                socket.close();
+                return;
+            }
+
+            System.out.println("Beginning download...");
+
+            FileOutputStream fos = new FileOutputStream(nFile);
+
+            int buff_size = 8192;
+
+            byte[] buff = new byte[buff_size];
+            int len;
+            int read = 0;
+
+            while ((len = in.read(buff, 0, Math.min(buff_size, filesize - read))) > 0) {
+                read += len;
+
+                fos.write(buff, 0, len);
+
+                System.out.println(((float) read / filesize) * 100 + "% done...");
+
+                buff = new byte[buff_size];
+            }
+
+            fos.close();
+
+            in.read();
+            in.read();
+
+            byte[] endm = new byte[6];
+            in.read(endm, 0, 6);
+
+            if (new String(endm).trim().equals("ENDL")) {
+                System.out.println("File downloaded successfully !");
+            } else {
+                System.out.println("Something went wrong while downloading the file...");
+            }
+        } else {
+            System.out.println("Unknow file");
+        }
+
+        socket.close();
     }
 
     private void help() {

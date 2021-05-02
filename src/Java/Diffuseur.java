@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -16,6 +17,7 @@ public class Diffuseur {
 
     private static int MAX_MSG = 10000;
     private static int SLEEP_TIME = 1000;
+    private static final String FILE_DIR = "data/files/";
 
     // Diffuseur identifié par :
     // un id, un port et une adresse multi diff, et un port pour la communication
@@ -90,15 +92,21 @@ public class Diffuseur {
                             br.read(command, 0, 4);
                             // On regarde quelle commande est effectuée
                             switch (String.valueOf(command)) {
-                            case "LAST":
-                                lastMsgs(sock, br);
-                                break;
-                            case "MESS":
-                                addMessageToList(sock, br);
-                                break;
-                            default:
-                                sock.close();
-                                break;
+                                case "LAST":
+                                    last(sock, br);
+                                    break;
+                                case "MESS":
+                                    mess(sock, br);
+                                    break;
+                                case "LSFI":
+                                    lsfi(sock, br);
+                                    break;
+                                case "LSDL":
+                                    dlfi(sock, br);
+                                    break;
+                                default:
+                                    sock.close();
+                                    break;
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -181,7 +189,7 @@ public class Diffuseur {
         }
     }
 
-    public synchronized void lastMsgs(Socket sock, BufferedReader br) throws IOException {
+    public void last(Socket sock, BufferedReader br) throws IOException {
         // On saute l'espace
         br.read();
         char[] nb = new char[5];
@@ -215,7 +223,7 @@ public class Diffuseur {
         sock.close();
     }
 
-    void addMessageToList(Socket sock, BufferedReader br) throws IOException {
+    void mess(Socket sock, BufferedReader br) throws IOException {
         // On saute l'espace
         br.read();
 
@@ -226,6 +234,76 @@ public class Diffuseur {
         PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
         pw.print("ACKM\r\n");
         pw.flush();
+
+        sock.close();
+    }
+
+    void lsfi(Socket sock, BufferedReader br) throws IOException {
+        // On lit les '\r\n'
+        br.read();
+        br.read();
+
+        File f = new File(FILE_DIR);
+        String[] files = f.list();
+
+        int len = Math.min(999, files.length);
+
+        PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
+        pw.print("FINB " + NetRadio.fillWithZero(len, NetRadio.NBFILE) + "\r\n");
+        pw.flush();
+
+        for (int i = 0; i < len; i++) {
+            pw.print("FILE " + NetRadio.fillWithSharp(files[i], NetRadio.FILENAME) + "\r\n");
+            pw.flush();
+        }
+
+        pw.print("ENDF\r\n");
+        pw.flush();
+
+        sock.close();
+    }
+
+    void dlfi(Socket sock, BufferedReader br) throws IOException {
+        br.read();
+
+        char[] filename = new char[NetRadio.FILENAME + 2];
+        br.read(filename, 0, NetRadio.FILENAME + 2);
+
+        File f = new File(FILE_DIR + NetRadio.removeSharp(String.valueOf(filename).trim()));
+
+        OutputStream os = sock.getOutputStream();
+
+        if (!f.exists()) {
+            os.write("FINF\r\n".getBytes(), 0, 6);
+        } else {
+            int len = (int) f.length();
+
+            os.write(("FIOK " + NetRadio.fillWithZero(len, NetRadio.FILESIZE) + "\r\n").getBytes(), 0,
+                    4 + 1 + NetRadio.FILESIZE + 2);
+
+            // On passe sur du byte (et non du char), car on parle de fichier.
+            // On évite les erreurs :-)
+
+            FileInputStream fr = new FileInputStream(f);
+            int buff_size = 8192;
+            byte[] buff = new byte[buff_size];
+
+            int size;
+
+            int sent = 0;
+
+            while ((size = fr.read(buff, 0, buff_size)) > 0) {
+                os.write(buff, 0, size);
+
+                sent += size;
+
+                buff = new byte[buff_size];
+            }
+
+            os.write("\r\n".getBytes(), 0, 2);
+
+            os.write("ENDL\r\n".getBytes(), 0, 6);
+        }
 
         sock.close();
     }
