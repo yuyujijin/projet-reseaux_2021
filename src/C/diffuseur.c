@@ -10,10 +10,13 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <netdb.h>
+#include <dirent.h>
 #include "diffuseur.h"
 #include "netradio.h"
 
 #define min(a, b) (a <= b ? a : b)
+
+#define file_dir "data/files/"
 
 // Les informations du diffuseur actuel
 diff_info di;
@@ -32,6 +35,8 @@ int start();
 int add_message(char *msg);
 void mess(int sock);
 void last(int sock);
+void lsfi(int sock);
+void dlfi(int sock);
 void print_infos(diff_info di);
 
 int main(int argc, char *argv[])
@@ -177,6 +182,12 @@ void *client_routine(void *adr)
     {
         mess(sock);
     }
+    else if (!strcmp(cmd, "LSFI")){
+        lsfi(sock);
+    }
+    else if (!strcmp(cmd, "DLFI")){
+        dlfi(sock);
+    }
     else
     {
         close(sock);
@@ -242,8 +253,6 @@ void last(int sock)
     int nb_sent_cpy = NBR_SENT;
     int n = min(atoi(nb), nb_sent_cpy + 1);
 
-    printf("%d\n",n);
-
     for (int i = 0; i < n; i++)
     {
         char *s = msgList[(nb_sent_cpy - i) % NUM_MSG];
@@ -264,6 +273,185 @@ void last(int sock)
 
     int len = 6 * sizeof(char);
     if(sendall(sock, "ENDM\r\n", &len) == -1){
+        perror("sendall");
+        close(sock);
+        exit(-1);
+    }
+
+    close(sock);
+}
+
+char **get_files(char* path, int *size){
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(path);
+
+    char **files = malloc(sizeof(char *));
+    *size = 0;
+
+    if (d)
+    {
+        while ((dir = readdir(d)) != NULL)
+        {   
+            if(!strcmp(dir->d_name,".") || !strcmp(dir->d_name,"..")) continue;
+            files = realloc(files, (*size + 1) * sizeof(char*));
+            files[*size] = strdup(dir->d_name);
+            *size = *size + 1;
+        }
+        closedir(d);
+    }
+    return files;
+}
+
+void lsfi(int sock){
+    // On reçoit le \r\n
+    char space;
+    if(recv(sock, &space, sizeof(char), 0) < 0){
+        perror("recv");
+        close(sock);
+        exit(-1);
+    }
+    if(recv(sock, &space, sizeof(char), 0) < 0){
+        perror("recv");
+        close(sock);
+        exit(-1);   
+    }
+
+    int nbfiles;
+    char **filenames = get_files("data/files/", &nbfiles);
+
+    int size = 4 + 1 + NBFILE + 2;
+    char fls[size];
+    memset(fls, 0, size);
+
+    char *s = fill_with_zeros(nbfiles, NBFILE);
+
+    sprintf(fls,"FINB %s\r\n",s);
+    
+    if(sendall(sock, fls, &size) == -1){
+        perror("sendall");
+        close(sock);
+        exit(-1);
+    }
+
+    for(int i = 0; i < nbfiles; i++){
+        int size = 4 + 1 + FILENAME + 2;
+
+        char name[size];
+        memset(name, 0, size);
+        sprintf(name, "FILE %s\r\n",fill_with_sharp(filenames[i], FILENAME));
+
+        if(sendall(sock, name, &size) == -1){
+            perror("sendall");
+            close(sock);
+            exit(-1);
+        }
+    }
+
+    int endf = 6;
+
+    if(sendall(sock, "ENDF\r\n", &endf) == -1){
+        perror("sendall");
+        close(sock);
+        exit(-1);
+    }
+
+    close(sock);
+}
+
+void dlfi(int sock){
+    char space;
+    if(recv(sock, &space, sizeof(char), 0) < 0){
+        perror("recv");
+        close(sock);
+        exit(-1);
+    }
+
+    char filename[FILENAME + 2];
+    memset(filename, 0, FILENAME + 2);
+    
+    if(recv(sock, filename, sizeof(char) * (FILENAME + 2), 0) != FILENAME + 2){
+        perror("recv");
+        close(sock);
+        exit(-1);
+    }
+
+    // on retire \r\n
+    filename[FILENAME + 1] = 0;
+    filename[FILENAME] = 0;
+    
+    for(int i = FILENAME - 1; i >= 0; i--){
+        if(filename[i] == '#') filename[i] = 0;
+        else break;
+    }
+
+    // puis on va lire dans le fichier ciblé
+    char path[strlen(file_dir) + strlen(filename) + 1];
+    memset(path, 0, strlen(file_dir) + strlen(filename) + 1);
+    sprintf(path, "%s%s", file_dir, filename);
+
+    int fd = open(path, O_RDONLY);
+    // Fichier non trouvé...
+    if(fd < 0){
+        int size = 6;
+        if(sendall(sock, "FINF\r\n", &size) < 0){
+            perror("sendall");
+            close(sock);
+            exit(-1);
+        }
+        return;
+    }
+
+    // Sinon récupère sa taille
+    int file_size = lseek(fd, 0, SEEK_END);
+
+    char *file_size_char = fill_with_zeros(file_size, FILESIZE);
+
+    int fiak_size = 4 + 1 + FILESIZE + 2;
+    char fiak[fiak_size];
+    memset(fiak, 0, fiak_size);
+
+    sprintf(fiak,"FIOK %s\r\n", file_size_char);
+
+    // On envoie la taille
+    if(sendall(sock, fiak, &fiak_size) < 0){
+        perror("sendall");
+        close(sock);
+        exit(-1);
+    }
+
+    // On retourne au début
+    lseek(fd, 0, SEEK_SET);
+
+    int size;
+
+    int buff_size = 8196;
+    char buff[buff_size];
+    memset(buff, 0, buff_size);
+
+    // Puis on envoie tout le fichier
+    while((size = read(fd, buff, buff_size)) > 0){
+        if(sendall(sock, buff, &size) < 0){
+            perror("sendall");
+            close(sock);
+            exit(-1);
+        }
+    }
+
+    // On ferme le fichier
+    close(fd);
+
+    // Et on envoie le terminateur
+    int rn = 2;
+    if(sendall(sock, "\r\n", &rn) < 0){
+        perror("sendall");
+        close(sock);
+        exit(-1);
+    }
+
+    // Et le message final
+    int endl = 6;
+    if(sendall(sock, "ENDL\r\n", &endl) < 0){
         perror("sendall");
         close(sock);
         exit(-1);

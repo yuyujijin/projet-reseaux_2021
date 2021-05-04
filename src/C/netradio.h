@@ -31,6 +31,12 @@
 
 #define NUMDIFF 2
 
+#define FILENAME 255
+
+#define FILESIZE 7
+
+#define NBFILE 3
+
 int create_tcp_server(int port);
 int create_client_socket(char *adr, int port);
 char *fill_with_zeros(int n, int size);

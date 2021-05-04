@@ -4,6 +4,11 @@ int create_tcp_server(int port)
 {
     int sock = socket(PF_INET, SOCK_STREAM, 0);
 
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0){
+        perror("setsockopt");
+        return -1;
+    }
+
     struct sockaddr_in address_sock;
     address_sock.sin_family = AF_INET;
     address_sock.sin_port = htons(port);
@@ -31,10 +36,10 @@ int create_client_socket(char *adr, int port){
 
 char *fill_with_zeros(int n, int size)
 {
-    char *s = malloc(sizeof(char) * size);
+    char *s = malloc(sizeof(char) * size + 1);
     if (s == NULL)
         return NULL;
-    memset(s, 0, size);
+    memset(s, 0, size + 1);
 
     char nstring[size];
     memset(nstring, 0, size);

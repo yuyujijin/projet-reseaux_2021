@@ -101,7 +101,7 @@ public class Diffuseur {
                                 case "LSFI":
                                     lsfi(sock, br);
                                     break;
-                                case "LSDL":
+                                case "DLFI":
                                     dlfi(sock, br);
                                     break;
                                 default:

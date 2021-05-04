@@ -310,7 +310,7 @@ public final class Client {
         String f = s.nextLine().trim();
 
         PrintWriter pw = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
-        pw.print("LSDL " + NetRadio.fillWithSharp(f, NetRadio.FILENAME));
+        pw.print("DLFI " + NetRadio.fillWithSharp(f, NetRadio.FILENAME) + "\r\n");
         pw.flush();
 
         // On utilise un input stream car on va récuperer des bytes
@@ -382,7 +382,7 @@ public final class Client {
                 System.out.println("Something went wrong while downloading the file...");
             }
         } else {
-            System.out.println("Unknow file");
+            System.out.println("Unknown file...");
         }
 
         socket.close();
