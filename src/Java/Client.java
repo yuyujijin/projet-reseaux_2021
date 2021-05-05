@@ -23,7 +23,9 @@ public final class Client {
     private static final String[] cmdList = { "'LISTEN' : Begin listening to a specified diffusor.",
             "'LIST' : Ask for a list of diffusor to a diffusor manager.",
             "'LAST' : Ask for the n last messages of a diffusor", "'exit' : Leaves the client.",
-            "'HELP' : Print every possible commands.", "'MESS' : Send a client message to a diffusor." };
+            "'HELP' : Print every possible commands.", "'MESS' : Send a client message to a diffusor.", 
+            "'LSFI' : Ask the diffusor for a list of available files to download.",
+            "'DLFI' : Download a file." };
 
     private String id;
 
