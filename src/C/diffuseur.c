@@ -505,6 +505,7 @@ void *regi(void *x){
     if(socket == -1){
         perror("connect"); return NULL;
     }
+
     // - envoyer regi avec normalized ip
     int size = 4 + 1 + ID + 1 + IP + 1 + PORT + 1 + IP + 1 + PORT + 2;
     char regibuf[size];
