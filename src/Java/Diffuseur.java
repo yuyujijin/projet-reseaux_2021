@@ -275,11 +275,13 @@ public class Diffuseur {
 
         if (!f.exists()) {
             os.write("FINF\r\n".getBytes(), 0, 6);
+            os.flush();
         } else {
             int len = (int) f.length();
 
             os.write(("FIOK " + NetRadio.fillWithZero(len, NetRadio.FILESIZE) + "\r\n").getBytes(), 0,
                     4 + 1 + NetRadio.FILESIZE + 2);
+            os.flush();
 
             // On passe sur du byte (et non du char), car on parle de fichier.
             // On évite les erreurs :-)
@@ -290,19 +292,15 @@ public class Diffuseur {
 
             int size;
 
-            int sent = 0;
-
             while ((size = fr.read(buff, 0, buff_size)) > 0) {
                 os.write(buff, 0, size);
-
-                sent += size;
+                os.flush();
 
                 buff = new byte[buff_size];
             }
 
-            os.write("\r\n".getBytes(), 0, 2);
-
             os.write("ENDL\r\n".getBytes(), 0, 6);
+            os.flush();
         }
 
         sock.close();

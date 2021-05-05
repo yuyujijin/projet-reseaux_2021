@@ -441,14 +441,6 @@ void dlfi(int sock){
     // On ferme le fichier
     close(fd);
 
-    // Et on envoie le terminateur
-    int rn = 2;
-    if(sendall(sock, "\r\n", &rn) < 0){
-        perror("sendall");
-        close(sock);
-        exit(-1);
-    }
-
     // Et le message final
     int endl = 6;
     if(sendall(sock, "ENDL\r\n", &endl) < 0){

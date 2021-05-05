@@ -10,12 +10,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -369,9 +366,6 @@ public final class Client {
             }
 
             fos.close();
-
-            in.read();
-            in.read();
 
             byte[] endm = new byte[6];
             in.read(endm, 0, 6);
