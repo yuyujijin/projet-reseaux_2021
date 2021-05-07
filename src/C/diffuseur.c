@@ -549,7 +549,7 @@ void *regi(void *x){
             exit(-1);
         }
 
-        if(!strncmp(resp,"RUOK\r\n")){
+	if(!strncmp(resp,"RUOK\r\n", 6)){
             int len = 6 * sizeof(char);
             sendall(socket, "IMOK\r\n", &len);
         }

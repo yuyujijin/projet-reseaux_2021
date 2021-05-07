@@ -38,31 +38,40 @@ public final class Client {
         System.out.println("Please enter your username :-)");
         id = NetRadio.fillWithSharp(s.nextLine().strip(), NetRadio.ID);
         System.out.println("Type 'HELP' to print every commands and 'exit' to exit the client.");
-        while (true) {
+	while (true) {
             try {
                 System.out.print(id + " > ");
-                String cmd = s.nextLine();
+		
+                String line = s.nextLine();
+		
+		String cmd = (line.indexOf(' ') != -1)? line.substring(0, line.indexOf(' '))
+		    : line;
+		String [] args = {"", ""};
+		// On récupère les args (si ils existent)
+		if(line.length() >= 5) args[0] = line.substring(cmd.length() + 1, line.substring(5, line.length()).indexOf(' ') + 5);
+		if(line.length() - 5 - args[0].length() > 0)
+		    args[1] = line.substring(cmd.length() + 1 + args[0].length() + 1, line.length());
                 switch (cmd.strip()) {
-                    case "LISTEN":
-                        listen(s);
+                    case "LSTN":
+			listen(s, args);
                         break;
                     case "LIST":
-                        list(s);
+			list(s, args);
                         break;
                     case "LSFI":
-                        lsfi(s);
+			lsfi(s, args);
                         break;
                     case "HELP":
                         help();
                         break;
                     case "MESS":
-                        mess(s);
+			mess(s, args);
                         break;
                     case "LAST":
-                        last(s);
+			last(s, args);
                         break;
                     case "DLFI":
-                        dlfi(s);
+			dlfi(s, args);
                         break;
                     case "exit":
                         return;
@@ -81,7 +90,7 @@ public final class Client {
         System.out.println("Please specify the ip and the port of the diffusor you would "
                 + "like to listen to in this format : \"IP PORT\" (without the quotes).");
         String[] args = s.nextLine().strip().split(" ");
-        while (args.length != 2) {
+	while (args.length != 2 && s.hasNextLine()) {
             System.out.println("Wrong number of arguments. Format : \"IP PORT\" (without the quotes).");
             args = s.nextLine().strip().split(" ");
         }
@@ -120,8 +129,9 @@ public final class Client {
         return pane;
     }
 
-    private void listen(Scanner s) {
-        String[] args = ipAndPort(s);
+    private void listen(Scanner s, String [] args) {
+	if(args[0].equals("") || args[1].equals("")) args = ipAndPort(s);
+
         String ip = args[0];
         int port = Integer.valueOf(args[1]);
 
@@ -133,7 +143,7 @@ public final class Client {
                 byte[] data = new byte[length];
                 DatagramPacket paquet = new DatagramPacket(data, data.length);
 
-                System.out.println("Now listening to " + ip + ":" + port + "...");
+                System.out.print("Now listening to " + ip + ":" + port + "...\n" + id + " > ");
                 // On créer une nouvelle fenêtre pour afficher les entrées
                 JTextArea pane = createPrompWindow(ip, port, mso);
                 while (true) {
@@ -147,14 +157,16 @@ public final class Client {
                     pane.revalidate();
                 }
             } catch (Exception e) {
-                System.out.println(
-                        "Something went wrong when trying to listen to the diffusor... (Are your sure the diffusor is online?)");
+                System.out.print(
+                        "Something went wrong when trying to listen to the diffusor... (Are your sure the diffusor is online?)" +
+				 "\n" + id + " > ");
             }
-        }).start();
+	}).start();
     }
 
-    private void list(Scanner s) throws IOException {
-        String[] args = ipAndPort(s);
+    private void list(Scanner s, String[] args) throws IOException {
+	if(args[0].equals("") || args[1].equals("")) args = ipAndPort(s);
+
         String ip = args[0];
         int port = Integer.valueOf(args[1]);
 
@@ -192,8 +204,9 @@ public final class Client {
         }
     }
 
-    private void last(Scanner s) throws IOException {
-        String[] args = ipAndPort(s);
+    private void last(Scanner s, String[] args) throws IOException {
+	if(args[0].equals("") || args[1].equals("")) args = ipAndPort(s);
+
         String ip = args[0];
         int port = Integer.valueOf(args[1]);
 
@@ -233,8 +246,8 @@ public final class Client {
         }
     }
 
-    private void mess(Scanner s) throws IOException {
-        String[] args = ipAndPort(s);
+    private void mess(Scanner s, String[] args) throws IOException {
+	if(args[0].equals("") || args[1].equals("")) args = ipAndPort(s);
         String ip = args[0];
         int port = Integer.valueOf(args[1]);
 
@@ -259,8 +272,9 @@ public final class Client {
             System.out.println("Message sent successfully !");
     }
 
-    private void lsfi(Scanner s) throws IOException {
-        String[] args = ipAndPort(s);
+    private void lsfi(Scanner s, String[] args) throws IOException {
+	if(args[0].equals("") || args[1].equals("")) args = ipAndPort(s);
+
         String ip = args[0];
         int port = Integer.valueOf(args[1]);
 
@@ -297,8 +311,9 @@ public final class Client {
         socket.close();
     }
 
-    private void dlfi(Scanner s) throws IOException {
-        String[] args = ipAndPort(s);
+    private void dlfi(Scanner s, String[] args) throws IOException {
+	if(args[0].equals("") || args[1].equals("")) args = ipAndPort(s);
+
         String ip = args[0];
         int port = Integer.valueOf(args[1]);
 
