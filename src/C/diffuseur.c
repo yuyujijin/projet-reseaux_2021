@@ -531,7 +531,7 @@ void *regi(void *x){
         exit(-1);
     }
 
-    if(!strcmp(regiresp,"REOK\r\n")){
+    if(!strncmp(regiresp,"REOK\r\n",6)){
         printf("Enregistrement réussi !\n");
     }else{
         printf("Echec de l'enregistrement...\n");
@@ -549,7 +549,7 @@ void *regi(void *x){
             exit(-1);
         }
 
-        if(!strcmp(resp,"RUOK\r\n")){
+        if(!strncmp(resp,"RUOK\r\n")){
             int len = 6 * sizeof(char);
             sendall(socket, "IMOK\r\n", &len);
         }
