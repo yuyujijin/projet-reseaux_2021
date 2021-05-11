@@ -19,14 +19,29 @@ char *helps[] = { "'LSTN' : Begin listening to a specified diffusor.",
 void* lstn(void *);
 void list(char *);
 void last(char *);
+void mess(char *);
 void lsfi(char *);
 void dlfi(char *);
 void help();
 
+char *id = NULL;
+
 int main(void){
     // On boucle sur l'entrée standard
-    char *line = NULL;
     size_t len = 0;
+    char *line = NULL;
+
+    printf("Welcome to the NetRadio client !\n");
+    printf("Please enter your username :-)\n");
+
+    getline(&line, &len, stdin);
+
+    line[strlen(line) - 1] = 0;
+    id = fill_with_sharp(line, ID);
+
+    printf("Welcome, %s!\n", id);
+
+    printf("Type 'HELP' to print every commands and 'exit' to exit the client.\n");
 
     while(getline(&line, &len, stdin) != -1){
         // On retire le \n
@@ -43,6 +58,8 @@ int main(void){
             list(line);
         }else if(!strncmp("LAST", line, 4)){
             last(line);
+        }else if(!strncmp("MESS", line, 4)){
+            mess(line);
         }else if(!strncmp("HELP", line, 4)){
             help();
         }else if(!strncmp("LSFI", line, 4)){
@@ -250,6 +267,65 @@ void list(char *line){
     close(sock);
 
 }
+
+void mess(char *line){
+    char *args = line + 5;
+    char *s = strchr(args, ' ');
+    if(s == NULL) exit(-1);
+
+    char ip[strlen(args) - strlen(s) + 1];
+    memset(ip, 0, strlen(args) - strlen(s) + 1);
+    memcpy(ip, args, strlen(args) - strlen(s));
+
+    char port[strlen(s) - 1];
+    memset(port, 0, strlen(s) - 1);
+    memcpy(port, s + 1, strlen(s) - 1);
+
+    int port_int = atoi(port);
+
+    int sock = create_client_socket(ip, port_int);
+    if(sock < 0){
+        perror("create_client_socket");
+        return;
+    }
+
+    printf("Please enter your message (Remember: If your message is longer than %d"
+    " characters, it will be truncated): ", MESS);
+
+    char *line_n = NULL;
+    size_t len = 0;
+
+    getline(&line_n, &len, stdin);
+
+    line_n[strlen(line_n) - 1] = 0;
+
+    int size = 4 + 1 + ID + 1 + MESS + 2;
+    char mess[size + 1];
+    memset(mess, 0, size + 1);
+
+    sprintf(mess, "MESS %s %s\r\n", id, fill_with_sharp(line_n, MESS));
+
+    if(sendall(sock, mess, &size) < 0){
+        perror("sendall");
+        return;
+    }
+
+    char resp[7];
+    memset(resp, 0, 7);
+    if(recv(sock, resp, 6, 0) != 6){
+        perror("recv");
+        return;
+    }
+
+    if(!strcmp(resp, "ACKM\r\n")){
+        printf("Message sent successfully !\n");
+    }else{
+        printf("We couldn't send your message as there was an error with it, sorry!\n");
+    }
+
+    close(sock);
+}
+
 
 void last(char *line){
     char *args = line + 5;
