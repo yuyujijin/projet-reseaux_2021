@@ -34,6 +34,35 @@ int create_client_socket(char *adr, int port){
     return descr;
 }
 
+int create_multicast_receive_socket(char *adr, int port){
+    int sock = socket(PF_INET, SOCK_DGRAM, 0);
+    int ok = 1;
+    if(setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &ok, sizeof(ok)) != 0){
+        perror("setsockopt");
+        return -1;
+    }
+
+    struct sockaddr_in address_sock;
+    address_sock.sin_family = AF_INET;
+    address_sock.sin_port = htons(port);
+    address_sock.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(sock, (struct sockaddr *)&address_sock, sizeof(struct sockaddr_in)))
+    {
+        perror("bind");
+        return -1;
+    }
+
+    struct ip_mreq mreq;
+    mreq.imr_multiaddr.s_addr = inet_addr(adr);
+    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+    if(setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) != 0){
+        perror("setsockopt");
+        return -1;
+    }
+
+    return sock;
+}
+
 char *fill_with_zeros(int n, int size)
 {
     char *s = malloc(sizeof(char) * size + 1);

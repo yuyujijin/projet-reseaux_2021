@@ -14,8 +14,6 @@
 #include "diffuseur.h"
 #include "netradio.h"
 
-#define min(a, b) (a <= b ? a : b)
-
 #define file_dir "data/files/"
 
 // Les informations du diffuseur actuel

@@ -15,6 +15,8 @@
 #include <string.h>
 #include "diffuseur.h"
 
+#define min(a, b) (a <= b ? a : b)
+
 #define _POSIX_C_SOURCE 200809L
 
 #define NUMMESS 4
@@ -39,6 +41,7 @@
 
 int create_tcp_server(int port);
 int create_client_socket(char *adr, int port);
+int create_multicast_receive_socket(char *adr, int port);
 char *fill_with_zeros(int n, int size);
 char *fill_with_sharp(char *s, long unsigned int n);
 char **get_msgs(char *filename, int *size);
