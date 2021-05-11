@@ -480,21 +480,21 @@ void dlfi(char *line){
 
         int filesize = atoi(sizing);
 
-        printf("The file %s weight %dB. It will be saved at `downloads/%s"
+        printf("The file %s weight %dB. It will be saved at `downloads/%s`"
         "\n(If a file of the same name already exists, it will be removed.)",
         line_n, filesize, line_n);
 
         struct stat st = {0};
 
-        if (stat("/downloads", &st) == -1) {
-            mkdir("/downloads", 0700);
+        if (stat("downloads", &st) == -1) {
+            mkdir("downloads", 0777);
         }
 
         char path[strlen("downloads/") + strlen(line_n) + 1];
         memset(path, 0, strlen("downloads/") + strlen(line_n) + 1);
         sprintf(path, "downloads/%s", line_n);
 
-        int fd = open(line_n, O_RDWR | O_CREAT);
+        int fd = open(path, O_RDWR | O_CREAT, 0777);
         if(fd < 0){
             perror("open");
             return;
@@ -517,7 +517,7 @@ void dlfi(char *line){
                 return;
             }
 
-            printf("%d done...\n", (read / filesize) * 100);
+            printf("%d%s done...\n", (read / filesize) * 100, "%");
 
             memset(buff, 0, buff_size);
         }
