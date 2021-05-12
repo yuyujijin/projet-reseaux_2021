@@ -593,7 +593,7 @@ void dlfi(char *line){
                 return;
             }
 
-            printf("%d%s done...\n", (read / filesize) * 100, "%");
+            printf("%f%s done...\n", ((float) read / filesize) * 100, "%");
 
             memset(buff, 0, buff_size);
         }
