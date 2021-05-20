@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -12,9 +13,11 @@ public class Diffuseur {
 
     private AtomicInteger NUM_MSG = new AtomicInteger(0);
     private AtomicInteger MSG_INDEX = new AtomicInteger(0);
+    private int NBR_SENT = 0;
 
     private static int MAX_MSG = 10000;
     private static int SLEEP_TIME = 1000;
+    private static final String FILE_DIR = "data/files/";
 
     // Diffuseur identifié par :
     // un id, un port et une adresse multi diff, et un port pour la communication
@@ -26,20 +29,22 @@ public class Diffuseur {
         this.ipmulti = ipmulti;
         this.ip2 = InetAddress.getLocalHost().getHostAddress();
         msgList = new String[MAX_MSG];
+
+        startMessage(id, ipmulti, ip2, port1, port2);
     }
 
     public void loadMessage(String filename) throws IOException {
         String[] msgs = FileLoader.loadMessages(filename);
         synchronized (msgList) {
             for (int i = 0; i < Math.min(msgs.length, (MAX_MSG - MSG_INDEX.get())); i++) {
-                addMessage(msgs[i]);
+                addMessage(id + " " + msgs[i]);
             }
         }
     }
 
     private void addMessage(String msg) {
         synchronized (msgList) {
-            msgList[NUM_MSG.get()] = NetRadio.fillWithSharp(msg, NetRadio.MESS);
+            msgList[NUM_MSG.get()] = NetRadio.fillWithSharp(msg, NetRadio.ID + 1 + NetRadio.MESS);
             incrMsg();
         }
     }
@@ -87,15 +92,21 @@ public class Diffuseur {
                             br.read(command, 0, 4);
                             // On regarde quelle commande est effectuée
                             switch (String.valueOf(command)) {
-                            case "LAST":
-                                lastMsgs(sock, br);
-                                break;
-                            case "MESS":
-                                addMessageToList(sock, br);
-                                break;
-                            default:
-                                sock.close();
-                                break;
+                                case "LAST":
+                                    last(sock, br);
+                                    break;
+                                case "MESS":
+                                    mess(sock, br);
+                                    break;
+                                case "LSFI":
+                                    lsfi(sock, br);
+                                    break;
+                                case "DLFI":
+                                    dlfi(sock, br);
+                                    break;
+                                default:
+                                    sock.close();
+                                    break;
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -103,7 +114,7 @@ public class Diffuseur {
                     }).start();
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                System.out.println("An error as occured : " + e.getMessage());
             }
         }).start();
         // Puis on lit en boucle les inputs pour récuperer les demandes de REGI
@@ -164,9 +175,9 @@ public class Diffuseur {
                 InetSocketAddress ia = new InetSocketAddress(ipmulti, port1);
 
                 String msg = getMsg();
-                stringInBytes(data, "DIFF " + NetRadio.fillWithZero(MSG_INDEX.get(), NetRadio.NUMMESS) + " " + id + " "
-                        + msg + "\r\n");
+                stringInBytes(data, "DIFF " + NetRadio.fillWithZero(NBR_SENT, NetRadio.NUMMESS) + " " + msg + "\r\n");
                 incrMsgIndex();
+                NBR_SENT = (NBR_SENT + 1) % MAX_MSG;
 
                 DatagramPacket paquet = new DatagramPacket(data, data.length, ia);
                 dso.send(paquet);
@@ -178,7 +189,7 @@ public class Diffuseur {
         }
     }
 
-    public synchronized void lastMsgs(Socket sock, BufferedReader br) throws IOException {
+    public void last(Socket sock, BufferedReader br) throws IOException {
         // On saute l'espace
         br.read();
         char[] nb = new char[5];
@@ -190,12 +201,15 @@ public class Diffuseur {
 
         PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
         synchronized (msgList) {
+            // On prend une copie de NBR_SENT, qui ne bougera pas
+            // (une sorte d'image figée au moment de la requête)
+            int nb_sent_cpy = NBR_SENT;
             // Pour ne pas dépasser la taille du nombre de message diffusé
-            int nbres = Math.min(Integer.valueOf(String.valueOf(nb).substring(0, 3)), NUM_MSG.get());
+            int nbres = Math.min(Integer.valueOf(String.valueOf(nb).strip()), nb_sent_cpy + 1);
             // Puis on envoie les `nbres` derniers messages
             for (int i = 0; i < nbres; i++) {
-                String s = "OLDM " + NetRadio.fillWithZero(NUM_MSG.get() - i, NetRadio.NUMMESS) + " " + id + " "
-                        + msgList[NUM_MSG.get() - i - 1] + "\r\n";
+                String s = "OLDM " + NetRadio.fillWithZero(nb_sent_cpy - i, NetRadio.NUMMESS) + " "
+                        + msgList[(nb_sent_cpy - i) % NUM_MSG.get()] + "\r\n";
                 byte[] data = new byte[4 + 1 + NetRadio.NUMMESS + 1 + NetRadio.ID + 1 + NetRadio.MESS + 2];
                 stringInBytes(data, s);
                 // Puis on envoie les données
@@ -209,14 +223,95 @@ public class Diffuseur {
         sock.close();
     }
 
-    void addMessageToList(Socket sock, BufferedReader br) {
+    void mess(Socket sock, BufferedReader br) throws IOException {
+        // On saute l'espace
+        br.read();
+
+        char[] msgChars = new char[NetRadio.ID + 1 + NetRadio.MESS + 2];
+        br.read(msgChars, 0, NetRadio.ID + 1 + NetRadio.MESS + 2);
+        addMessage(String.valueOf(msgChars).strip());
+
+        PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
+        pw.print("ACKM\r\n");
+        pw.flush();
+
+        sock.close();
     }
 
-    private static void startMessage(String id, String ip1, int port1, int port2) {
+    void lsfi(Socket sock, BufferedReader br) throws IOException {
+        // On lit les '\r\n'
+        br.read();
+        br.read();
+
+        File f = new File(FILE_DIR);
+        String[] files = f.list();
+
+        int len = Math.min(999, files.length);
+
+        PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));
+        pw.print("FINB " + NetRadio.fillWithZero(len, NetRadio.NBFILE) + "\r\n");
+        pw.flush();
+
+        for (int i = 0; i < len; i++) {
+            pw.print("FILE " + NetRadio.fillWithSharp(files[i], NetRadio.FILENAME) + "\r\n");
+            pw.flush();
+        }
+
+        pw.print("ENDF\r\n");
+        pw.flush();
+
+        sock.close();
+    }
+
+    void dlfi(Socket sock, BufferedReader br) throws IOException {
+        br.read();
+
+        char[] filename = new char[NetRadio.FILENAME + 2];
+        br.read(filename, 0, NetRadio.FILENAME + 2);
+
+        File f = new File(FILE_DIR + NetRadio.removeSharp(String.valueOf(filename).trim()));
+
+        OutputStream os = sock.getOutputStream();
+
+        if (!f.exists()) {
+            os.write("FINF\r\n".getBytes(), 0, 6);
+            os.flush();
+        } else {
+            int len = (int) f.length();
+
+            os.write(("FIOK " + NetRadio.fillWithZero(len, NetRadio.FILESIZE) + "\r\n").getBytes(), 0,
+                    4 + 1 + NetRadio.FILESIZE + 2);
+            os.flush();
+
+            // On passe sur du byte (et non du char), car on parle de fichier.
+            // On évite les erreurs :-)
+
+            FileInputStream fr = new FileInputStream(f);
+            int buff_size = 8192;
+            byte[] buff = new byte[buff_size];
+
+            int size;
+
+            while ((size = fr.read(buff, 0, buff_size)) > 0) {
+                os.write(buff, 0, size);
+                os.flush();
+
+                buff = new byte[buff_size];
+            }
+
+            os.write("ENDL\r\n".getBytes(), 0, 6);
+            os.flush();
+        }
+
+        sock.close();
+    }
+
+    private static void startMessage(String id, String ip1, String ip2, int port1, int port2) {
         System.out.println("#-----------------------------------#");
         System.out.println(" * id : " + id);
         System.out.println(" * ip multi diffusion : " + ip1);
         System.out.println(" * port multi diffusion : " + port1);
+        System.out.println(" * ip TCP : " + ip2);
         System.out.println(" * port TCP : " + port2);
         System.out.println("#-----------------------------------#");
     }
@@ -235,7 +330,6 @@ public class Diffuseur {
         String ip1 = settings.get("ip1");
         int port1 = Integer.valueOf(settings.get("port1"));
         int port2 = Integer.valueOf(settings.get("port2"));
-        startMessage(id, ip1, port1, port2);
         Diffuseur diff = new Diffuseur(id, port1, port2, ip1);
         diff.loadMessage(args[1]);
         diff.start();

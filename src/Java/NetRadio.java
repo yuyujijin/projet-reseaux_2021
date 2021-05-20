@@ -2,6 +2,9 @@ public class NetRadio {
     public static final int NUMMESS = 4;
     public static final int ID = 8;
     public static final int MESS = 140;
+    public static final int FILENAME = 255;
+    public static final int FILESIZE = 7;
+    public static final int NBFILE = 3;
     public static final int NBMESS = 3;
     public static final int IP = 15;
     public static final int PORT = 4;
@@ -37,5 +40,15 @@ public class NetRadio {
         while (s.length() != requieredSize)
             s = '0' + s;
         return s;
+    }
+
+    public static String removeSharp(String s) {
+        int count = 0;
+        for (int i = s.length() - 1; i >= 0; i--) {
+            if (s.charAt(i) != '#')
+                break;
+            count++;
+        }
+        return s.substring(0, s.length() - count);
     }
 }

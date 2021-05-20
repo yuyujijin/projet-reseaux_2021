@@ -3,9 +3,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -32,7 +34,10 @@ public class Gestionnaire {
             // s : id_ip1_port1_ip2_port2
             if (NBR_DIFFUSEUR.get() >= MAX_DIFFUSEUR)
                 return false;
-            diffuseurs.add(s.strip());
+            if (diffuseurs.contains(s)) {
+                return false;
+            }
+            diffuseurs.add(s);
             NBR_DIFFUSEUR.incrementAndGet();
             return true;
         }
@@ -48,34 +53,49 @@ public class Gestionnaire {
         }
     }
 
+    private void startMessage(int port) {
+        try {
+            System.out.println("#-----------------------------------#");
+            System.out.println(" * ip : " + InetAddress.getLocalHost().getHostAddress());
+            System.out.println(" * port : " + port);
+            System.out.println("#-----------------------------------#");
+        } catch (UnknownHostException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
     public void start() throws IOException {
         // On boucle en TCP en attendant des connexions
         ServerSocket server = new ServerSocket(port);
-        System.out.println("GESTIONNAIRE : JE ME LANCE SUR LE PORT " + port);
+        startMessage(port);
         while (true) {
-            Socket socket = server.accept();
-            System.out.println("CONNEXION ENTRANTE DE " + socket.getInetAddress().toString());
-            new Thread(() -> {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-                    char[] command = new char[4];
-                    reader.read(command, 0, 4);
-                    switch (String.valueOf(command)) {
-                    case "LIST":
-                        workWithClient(socket);
-                        break;
-                    case "REGI":
-                        workWithDiffuseur(reader, socket);
-                        break;
-                    default:
-                        System.out.println("Je n'ai pas compris cette commande...");
-                        socket.close();
-                        break;
+            try {
+                Socket socket = server.accept();
+                System.out.println("CONNEXION ENTRANTE DE " + socket.getInetAddress().toString());
+                new Thread(() -> {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+                        char[] command = new char[4];
+                        reader.read(command, 0, 4);
+                        switch (String.valueOf(command)) {
+                        case "LIST":
+                            workWithClient(socket);
+                            break;
+                        case "REGI":
+                            workWithDiffuseur(reader, socket);
+                            break;
+                        default:
+                            System.out.println("Je n'ai pas compris cette commande...");
+                            socket.close();
+                            break;
+                        }
+                    } catch (IOException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
                     }
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-            }).start();
+                }).start();
+            } catch (Exception e) {
+                System.out.println("An error as occured : " + e.getMessage());
+            }
         }
     }
 
@@ -122,15 +142,17 @@ public class Gestionnaire {
             socket.close();
             return;
         }
+
         // On tente de l'ajouter
         PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
-        if (addGestionaire(String.valueOf(diffuseur))) {
+        String diffId = String.valueOf(diffuseur).strip();
+        if (addGestionaire(diffId)) {
             System.out.println(
                     "L'ENREGISTREMENT DE " + socket.getInetAddress().toString() + " A ETE EFFECTUE AVEC SUCCES.");
             writer.print("REOK\r\n");
             writer.flush();
 
-            diffuseurRoutine(socket, String.valueOf(diffuseur));
+            diffuseurRoutine(socket, diffId);
         } else {
             System.out.println("L'ENREGISTREMENT DE " + socket.getInetAddress().toString() + " A ECHOUE.");
             writer.print("RENO\r\n");
@@ -187,7 +209,7 @@ public class Gestionnaire {
         try {
             g.start();
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("An error as occured : " + e.getMessage());
         }
     }
 }
