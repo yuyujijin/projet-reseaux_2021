@@ -25,6 +25,7 @@ void dlfi(char *);
 void help();
 
 char *id = NULL;
+int listening = 0;
 
 int main(void){
     // On boucle sur l'entrée standard
@@ -48,6 +49,7 @@ int main(void){
         line[strlen(line) - 1] = 0;
         // On cherche la commande demandée
         if(!strncmp("LSTN", line, 4)){
+            listening = 1;
             pthread_t th_listen;
             if (pthread_create(&th_listen, NULL, lstn, line) != 0)
             {
@@ -72,6 +74,7 @@ int main(void){
             printf("Unknown command \"%s\". Type \"HELP\""
             " to get a list of every possible commands.\n", line);
         }
+        while(listening){}
     }
     return 0;
 }
@@ -99,58 +102,22 @@ void* lstn(void *line){
 
     printf("Now listening to %s:%d...\n", ip, port_int);
 
-    // On va exec un "gnome-terminal" pour ouvrir un nouveau terminal
-    // On va ensuite récuperer le tty du dernier terminal créé
-    // Puis ecrire les messages dans ce de dernier (/dev/pts/x)
+    printf("Please enter the `tty` of the window you would like your diffusion to be shown\n");
 
-    // On ouvre un nouveau terminal
-    int f = fork();
-    int status;
+    char *line_n = NULL;
+    size_t len = 0;
 
-    switch(f){
-        case -1 :
-        perror("fork");
-        return NULL;
-        case 0 : 
-        // Le fils execute et quite
-        if(execlp("gnome-terminal", "gnome-terminal", NULL) < 0){
-            perror("execvp gnome-terminal");
-            exit(-1);
-        }
-        exit(0);
-        break;
-        default : 
-        waitpid(f, &status, 0);
-        break;
-    }
+    getline(&line_n, &len, stdin);
 
-    // On récupère maintenant le dernier tty
-    DIR *d;
-    struct dirent *dir;
-    d = opendir("/dev/pts/");
+    listening = 0;
 
-    int max = -1;
+    line_n[strlen(line_n) - 1] = 0;
 
-    // On récupère le descripteur max
-    if (d)
-    {
-        while ((dir = readdir(d)) != NULL)
-        {   
-            if(!strcmp(dir->d_name,".") || !strcmp(dir->d_name,"..") || !strncmp(dir->d_name, "ptmx", 4)) continue;
-            int n = atoi(dir->d_name);
-            if(n > max) max = n;
-        }
-        closedir(d);
-    }
-
-    if(max == -1){
-        printf("Something went wrong while opening the new window (can't find its tty)\n");
-        return NULL;
-    }
+    int tty = atoi(line_n);
 
     char ttyname[64];
     memset(ttyname, 0, 64);
-    sprintf(ttyname, "/dev/pts/%d", max);
+    sprintf(ttyname, "/dev/pts/%d", tty);
 
     int fd = open(ttyname, O_RDWR);
     if(fd < 0){
