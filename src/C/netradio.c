@@ -37,7 +37,7 @@ int create_client_socket(char *adr, int port){
 int create_multicast_receive_socket(char *adr, int port){
     int sock = socket(PF_INET, SOCK_DGRAM, 0);
     int ok = 1;
-    if(setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &ok, sizeof(ok)) != 0){
+    if(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &ok, sizeof(ok)) != 0){
         perror("setsockopt");
         return -1;
     }
